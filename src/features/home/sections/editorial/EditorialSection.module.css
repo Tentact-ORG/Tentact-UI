@@ -1,0 +1,330 @@
+.section {
+  position: relative;
+  padding: 120px var(--gut) 0;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr 1fr;
+  gap: 16px;
+  padding: 6px 0 18px;
+  color: var(--ink-2);
+}
+
+.meta span:last-child {
+  text-align: right;
+}
+
+.stage {
+  position: relative;
+  height: max(86vh, 640px);
+}
+
+/* ---------- main photo ---------- */
+.main {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 56px;
+  width: min(31vw, 470px);
+  margin-left: calc(min(31vw, 470px) / -2);
+  overflow: hidden;
+  border-radius: 4px;
+  background: #ddd;
+}
+
+.photo {
+  object-fit: cover;
+}
+
+.focus {
+  position: absolute;
+  left: 49%;
+  top: 43%;
+  width: 30%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+.focus i {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #fff;
+}
+
+.focus i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; }
+.focus i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; }
+.focus i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; }
+.focus i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; }
+
+.focusLabel {
+  position: absolute;
+  left: 49%;
+  top: calc(43% + 18%);
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px 7px 8px;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.35);
+}
+
+.focusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 4px rgba(255, 74, 28, 0.18);
+}
+
+/* ---------- headline ---------- */
+.title {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  line-height: 0.86;
+}
+
+.lineOne {
+  position: absolute;
+  left: 2.4vw;
+  top: 11%;
+  font-size: clamp(64px, 10.4vw, 170px);
+  white-space: nowrap;
+}
+
+.lineTwo {
+  position: absolute;
+  right: 2vw;
+  top: 63%;
+  font-size: clamp(56px, 8.6vw, 150px);
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+}
+
+.word {
+  display: inline-block;
+  overflow: hidden;
+  padding-bottom: 0.08em;
+  vertical-align: top;
+}
+
+.char {
+  display: inline-block;
+}
+
+/* ---------- side photos ---------- */
+.left {
+  position: absolute;
+  left: 0;
+  top: 44%;
+  width: 16vw;
+  max-width: 250px;
+}
+
+.left .photoFrame {
+  aspect-ratio: 5 / 4;
+}
+
+.left .photo {
+  object-position: 50% 25%;
+}
+
+.right {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 12.5vw;
+  max-width: 200px;
+}
+
+.right .photoFrame {
+  aspect-ratio: 3 / 4;
+}
+
+.photoFrame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.caption {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: var(--ink-2);
+}
+
+/* ---------- copy & actions ---------- */
+.copy {
+  position: absolute;
+  left: 0;
+  bottom: 56px;
+  width: min(300px, 26vw);
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.copy :global(.micro) {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.cta {
+  position: absolute;
+  right: 0;
+  bottom: 56px;
+  display: flex;
+  gap: 8px;
+}
+
+.flow {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  translate: -50% 0;
+  display: flex;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.flow b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ---------- ticker ---------- */
+.ticker {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin: 0 calc(var(--gut) * -1);
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.tickerTrack {
+  display: flex;
+  width: max-content;
+  animation: marquee 40s linear infinite;
+}
+
+.tickerTrack span {
+  padding: 18px 26px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 30px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+}
+
+.tickerTrack span::after {
+  content: "✦";
+  font-style: normal;
+  font-size: 14px;
+  color: var(--red);
+}
+
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 860px) {
+  .meta {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .meta span:nth-child(2),
+  .meta span:nth-child(3) {
+    display: none;
+  }
+
+  .stage {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    height: auto;
+    padding-bottom: 28px;
+  }
+
+  .title {
+    position: relative;
+    order: 1;
+  }
+
+  .lineOne,
+  .lineTwo {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    display: block;
+    font-size: clamp(48px, 15vw, 90px);
+  }
+
+  .lineTwo {
+    margin-top: 4px;
+    font-size: clamp(44px, 13vw, 80px);
+  }
+
+  .main {
+    position: relative;
+    left: auto;
+    margin-left: 0;
+    width: 100%;
+    height: 62vh;
+    order: 2;
+  }
+
+  .left,
+  .right {
+    display: none;
+  }
+
+  .copy,
+  .cta,
+  .flow {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    translate: none;
+    width: auto;
+  }
+
+  .copy { order: 3; }
+  .cta { order: 4; flex-wrap: wrap; }
+  .flow { order: 5; }
+}
+
+/* One section = one screen on desktop. */
+@media (min-width: 861px) {
+  .section {
+    height: 100vh;
+    height: 100svh;
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    padding-top: 78px;
+  }
+
+  .stage {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+}

@@ -1,0 +1,375 @@
+.section {
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.section::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: min(1100px, 120vw);
+  aspect-ratio: 2 / 1;
+  translate: -50% -50%;
+  background: radial-gradient(ellipse at center, rgba(255, 170, 40, 0.22), rgba(255, 74, 28, 0.08) 45%, transparent 70%);
+  pointer-events: none;
+}
+
+.header {
+  position: relative;
+}
+
+.eyebrow {
+  color: var(--muted);
+}
+
+.title {
+  margin-top: 14px;
+}
+
+.intro {
+  margin-top: 16px;
+}
+
+/* ---------- deal card ---------- */
+.deal {
+  position: relative;
+  max-width: 1040px;
+  margin: 56px auto 0;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  border-radius: 28px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 50px 100px -50px rgba(120, 60, 10, 0.35);
+  overflow: hidden;
+}
+
+@media (max-width: 860px) {
+  .deal {
+    grid-template-columns: 1fr;
+  }
+}
+
+.offerSide {
+  position: relative;
+  padding: 40px;
+  overflow: hidden;
+}
+
+.includedSide {
+  padding: 40px;
+  background: var(--ink);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.rangoli {
+  position: absolute;
+  right: -150px;
+  top: -150px;
+  width: 300px;
+  height: 300px;
+  opacity: 0.4;
+  animation: spin 60s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffb347, #ff4a1c);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 10px 24px -10px rgba(255, 74, 28, 0.7);
+}
+
+.flame {
+  width: 14px;
+  height: 18px;
+  transform-origin: 50% 100%;
+  animation: flicker 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes flicker {
+  0% { transform: scale(1, 1) rotate(-3deg); }
+  100% { transform: scale(0.9, 1.12) rotate(3deg); }
+}
+
+.sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sparkles i {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffb347;
+  box-shadow: 0 0 12px 3px rgba(255, 179, 71, 0.7);
+  animation: twinkle 2.6s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* ---------- price rows ---------- */
+.rows {
+  margin-top: 22px;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px dashed var(--line-2);
+}
+
+.row:last-of-type {
+  border-bottom: 0;
+}
+
+.rowLabel {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.rowLabel b {
+  display: block;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.hint {
+  display: block;
+  margin-top: 2px;
+}
+
+.was {
+  position: relative;
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  color: var(--muted);
+}
+
+.was::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 52%;
+  height: 2.5px;
+  background: var(--red);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--strike, 0));
+  border-radius: 2px;
+}
+
+.now {
+  font-size: clamp(56px, 7vw, 92px);
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  line-height: 0.9;
+}
+
+.now sup {
+  font-size: 0.42em;
+  vertical-align: 0.9em;
+  margin-right: 2px;
+  letter-spacing: 0;
+}
+
+.insiderChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--yellow);
+  color: var(--ink);
+  opacity: 0;
+}
+
+/* Sealed insider discount: the price stays blurred until the visitor reveals it. */
+.sealed {
+  display: inline-grid;
+  place-items: center end;
+}
+
+.sealed > * {
+  grid-area: 1 / 1;
+}
+
+.finalPrice {
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  color: var(--red);
+  filter: blur(9px);
+  opacity: 0.5;
+  user-select: none;
+  transition: filter 0.7s var(--ease), opacity 0.7s;
+}
+
+.sealedOpen .finalPrice {
+  filter: none;
+  opacity: 1;
+}
+
+.revealButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  box-shadow: 0 12px 26px -12px rgba(14, 14, 15, 0.6);
+  animation: nudge 2.6s var(--ease) infinite;
+  transition: opacity 0.35s, transform 0.45s var(--ease);
+}
+
+.revealButton::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  left: -60%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: shine 2.6s ease-in-out infinite;
+}
+
+.revealButton:hover {
+  background: #26262a;
+}
+
+.revealButton svg {
+  width: 13px;
+  height: 13px;
+}
+
+@keyframes nudge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes shine {
+  0%, 40% { left: -60%; }
+  80%, 100% { left: 130%; }
+}
+
+.sealedOpen .revealButton {
+  opacity: 0;
+  transform: scale(0.7);
+  pointer-events: none;
+  animation: none;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 26px;
+}
+
+.note {
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.note b {
+  color: var(--ink);
+}
+
+/* ---------- included ---------- */
+.includedSide h3 {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 30px;
+}
+
+.includedSide ul {
+  list-style: none;
+  margin: 22px 0 26px;
+  display: grid;
+  gap: 13px;
+  font-size: 15px;
+  color: #d8d8dd;
+}
+
+.includedSide li {
+  display: flex;
+  gap: 10px;
+}
+
+.includedSide li::before {
+  content: "✓";
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  background: rgba(255, 74, 28, 0.18);
+  color: #ff8a66;
+}
+
+.mailCard {
+  margin-top: auto;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mailCard small {
+  display: block;
+  color: #8c8c93;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mailCard a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.mailCard a:hover {
+  color: #ff8a66;
+}

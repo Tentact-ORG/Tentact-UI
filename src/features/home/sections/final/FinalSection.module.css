@@ -1,0 +1,52 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 40px;
+  align-items: center;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+@media (max-width: 860px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.eyebrow {
+  color: var(--muted);
+}
+
+.grid :global(.h2) {
+  margin-top: 18px;
+  font-size: clamp(52px, 7.4vw, 124px);
+  line-height: 0.9;
+}
+
+.grid :global(.lead) {
+  margin-top: 22px;
+}
+
+.emailLink {
+  color: var(--ink);
+  border-bottom: 1px solid var(--red);
+}
+
+.card {
+  perspective: 1000px;
+}
+
+.cardInner {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  aspect-ratio: 4 / 5.6;
+  max-height: 78vh;
+  margin-left: auto;
+  box-shadow: 0 60px 90px -50px rgba(14, 14, 15, 0.6);
+  will-change: transform;
+}
+
+.photo {
+  object-fit: cover;
+}

@@ -1,0 +1,70 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: transform 0.3s var(--ease), background 0.25s, box-shadow 0.3s;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.red {
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 10px 30px -12px rgba(255, 74, 28, 0.7);
+}
+
+.red:hover {
+  background: #ff5d32;
+  box-shadow: 0 14px 36px -12px rgba(255, 74, 28, 0.85);
+}
+
+.ink {
+  background: var(--ink);
+  color: #fff;
+}
+
+.ink:hover {
+  background: #26262a;
+}
+
+.line {
+  border: 1px solid var(--line-2);
+}
+
+.line:hover {
+  background: #fff;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(14, 14, 15, 0.14);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.glass:hover {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.frosted {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.arrow {
+  transition: transform 0.3s var(--ease);
+}
+
+.btn:hover .arrow {
+  transform: translateX(4px);
+}

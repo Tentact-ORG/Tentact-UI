@@ -1,0 +1,204 @@
+.section {
+  background: linear-gradient(180deg, #e9e8e4, #f6f6f4 18%, #f6f6f4 82%, var(--paper));
+}
+
+.eyebrow {
+  color: var(--muted);
+}
+
+.title {
+  margin-top: 14px;
+}
+
+.intro {
+  margin-top: 16px;
+}
+
+/* ---------- legend ---------- */
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+
+.legendPills {
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.legendButton {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: var(--muted);
+  transition: all 0.2s;
+}
+
+.legendButtonActive {
+  background: var(--ink);
+  color: #fff;
+}
+
+.legendButton svg {
+  width: 12px;
+  height: 14px;
+}
+
+/* ---------- map ---------- */
+.map {
+  position: relative;
+  margin: 28px auto 0;
+  max-width: min(1200px, calc((100svh - 330px) * 2));
+}
+
+.map > svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.land {
+  fill: #e1e2e6;
+  stroke: #f6f6f4;
+  stroke-width: 0.6;
+}
+
+/* Live motion: dots march along the routes. */
+.route {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-dasharray: 0 10;
+  opacity: 0.85;
+  animation: march 1.4s linear infinite;
+}
+
+.routeGhost {
+  fill: none;
+  stroke: rgba(14, 14, 15, 0.25);
+  stroke-width: 1.2;
+}
+
+@keyframes march {
+  to { stroke-dashoffset: -10; }
+}
+
+/* ---------- pins ---------- */
+.pin {
+  position: absolute;
+  translate: -50% -100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  opacity: 0;
+}
+
+.drop {
+  width: 22px;
+  height: 28px;
+  filter: drop-shadow(0 4px 6px rgba(17, 18, 22, 0.2));
+  transform-origin: 50% 100%;
+  transition: transform 0.5s var(--ease);
+}
+
+.pinLabel {
+  position: absolute;
+  top: 100%;
+  margin-top: 4px;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+.pinAbove .pinLabel {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 4px;
+}
+
+.pinLabel small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pinLabel small i {
+  font-style: normal;
+}
+
+.pinLabel b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sourceTag {
+  display: inline-block;
+  margin-top: 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  padding: 3px 9px;
+  border-radius: 999px;
+  transition: transform 0.4s var(--ease), box-shadow 0.4s;
+}
+
+.pinDimmed {
+  opacity: 0.15 !important;
+  transition: opacity 0.3s;
+}
+
+/* Pins ripple, and one city at a time is highlighted. */
+.pinRipple {
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 16px;
+  height: 6px;
+  margin-left: -8px;
+  border-radius: 50%;
+  border: 2px solid var(--c);
+  opacity: 0;
+  pointer-events: none;
+  animation: pinring 2.6s var(--ease) infinite;
+}
+
+@keyframes pinring {
+  0% { transform: scale(0.4); opacity: 0.9; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
+
+.pin[data-hot] .drop {
+  transform: translateY(-7px) scale(1.18);
+}
+
+.pin[data-hot] .sourceTag {
+  transform: scale(1.08);
+  box-shadow: 0 8px 18px -6px var(--c);
+}
+
+@media (max-width: 760px) {
+  .pinLabel {
+    display: none;
+  }
+
+  .drop {
+    width: 14px;
+    height: 18px;
+  }
+}

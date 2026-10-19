@@ -1,0 +1,68 @@
+.footer {
+  padding: 80px var(--gut) 24px;
+  border-top: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.links {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.links a:hover {
+  color: var(--red);
+}
+
+.email {
+  color: var(--red);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 32px);
+  margin-top: 60px;
+}
+
+.mark {
+  flex: none;
+  display: block;
+  width: clamp(64px, 14vw, 240px);
+  height: auto;
+  filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.25));
+  transition: transform 0.5s var(--ease);
+}
+
+.brand:hover .mark {
+  transform: rotate(-8deg) scale(1.08);
+}
+
+.wordmark {
+  font-size: clamp(52px, 13.5vw, 250px);
+  font-weight: 700;
+  letter-spacing: -0.075em;
+  line-height: 0.8;
+  white-space: nowrap;
+}
+
+.wordmark em {
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+.bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 22px;
+  color: var(--muted);
+}

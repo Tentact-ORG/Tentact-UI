@@ -1,0 +1,209 @@
+/* =========================================================================
+   Design tokens
+   ========================================================================= */
+:root {
+  --bg: #f1efea;
+  --paper: #faf9f6;
+  --ink: #0e0e0f;
+  --ink-2: #3a3a3e;
+  --muted: #76767c;
+  --dim: #a3a3a8;
+  --line: rgba(14, 14, 15, 0.1);
+  --line-2: rgba(14, 14, 15, 0.18);
+
+  --red: #ff4a1c;
+  --yellow: #fff07a;
+  --mint: #d6f2e2;
+  --sky: #dbe7ff;
+  --sand: #ece2cd;
+  --lilac: #e7ddfb;
+  --peach: #ffe0cf;
+  --lime: #e9f6bf;
+  --pink: #ffd9e6;
+  --ok: #059669;
+
+  --sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --serif: var(--font-instrument-serif), Georgia, serif;
+  --mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --gut: 24px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gut: 16px;
+  }
+}
+
+/* =========================================================================
+   Reset & base
+   ========================================================================= */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* =========================================================================
+   Typography utilities
+   ========================================================================= */
+em,
+.serif {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.micro {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.35;
+}
+
+.h2 {
+  font-size: clamp(40px, 5.6vw, 84px);
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.h2 em {
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  font-size: clamp(16px, 1.3vw, 18px);
+  color: var(--ink-2);
+  max-width: 540px;
+  text-wrap: pretty;
+}
+
+.center {
+  text-align: center;
+}
+
+.center .lead {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* =========================================================================
+   Section scaffolding
+   ========================================================================= */
+.sec {
+  position: relative;
+  padding: 130px var(--gut);
+}
+
+@media (max-width: 760px) {
+  .sec {
+    padding: 90px var(--gut);
+  }
+}
+
+/* One section = one screen: content is scaled to fit by <FitFrame>. */
+.fit-in {
+  width: 100%;
+  transform-origin: 50% 50%;
+}
+
+.frame {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+@media (min-width: 861px) {
+  .frame {
+    height: 100vh;
+    height: 100svh;
+    min-height: 560px;
+    overflow: hidden;
+    padding-top: 80px !important;
+    padding-bottom: 20px !important;
+  }
+
+  .frame[data-fit-origin="bottom"] {
+    justify-content: flex-end;
+  }
+
+  .frame[data-fit-origin="bottom"] .fit-in {
+    transform-origin: 50% 100%;
+  }
+
+  .frame[data-fit-origin="top"] {
+    justify-content: flex-start;
+    padding-top: 72px !important;
+  }
+
+  .frame[data-fit-origin="top"] .fit-in {
+    transform-origin: 50% 0;
+  }
+}
+
+/* =========================================================================
+   Motion
+   ========================================================================= */
+
+/* Until the page's scripts take over, keep animated elements hidden (see layout.tsx). */
+.pre [data-rv],
+.pre [data-intro] {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

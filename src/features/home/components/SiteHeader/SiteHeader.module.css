@@ -1,0 +1,131 @@
+.nav {
+  position: fixed;
+  top: 14px;
+  left: var(--gut);
+  right: var(--gut);
+  z-index: 80;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.nav > * {
+  pointer-events: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 46px;
+  padding: 0 10px 0 14px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: #fff;
+  box-shadow: 0 14px 30px -16px rgba(0, 0, 0, 0.5);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  font-size: 17px;
+}
+
+.logo em {
+  font-size: 1.12em;
+  letter-spacing: -0.01em;
+}
+
+.mark {
+  flex: none;
+  display: block;
+  margin: -4px 0;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+  transition: transform 0.5s var(--ease);
+}
+
+.logo:hover .mark {
+  transform: rotate(-8deg) scale(1.08);
+}
+
+.menuButton {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  transition: background 0.2s;
+}
+
+.menuButton:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.signIn {
+  background: var(--yellow);
+  color: var(--ink);
+  height: 46px;
+  padding: 0 18px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+@media (max-width: 480px) {
+  .signIn {
+    display: none;
+  }
+}
+
+.panel {
+  position: fixed;
+  top: 68px;
+  left: var(--gut);
+  z-index: 79;
+  width: min(320px, calc(100vw - 32px));
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--ink);
+  color: #fff;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.5);
+  transform-origin: top left;
+  opacity: 0;
+  transform: scale(0.92) translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.4s var(--ease);
+}
+
+.panelOpen {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.panel a {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.panel a:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.panel a span {
+  color: #7b7b82;
+  font-family: var(--mono);
+  font-size: 11px;
+}

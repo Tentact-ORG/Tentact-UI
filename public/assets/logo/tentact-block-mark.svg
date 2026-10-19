@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <title>The Tentact</title>
+  <defs>
+    <!-- paper grain -->
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.1 .9"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+    <linearGradient id="fold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </linearGradient>
+    <!-- letter slabs (white) minus the thin cuts (black) -->
+    <mask id="letters" maskUnits="userSpaceOnUse" x="0" y="0" width="485" height="345">
+      <g fill="#fff">
+        <!-- T --><rect x="0" y="0" width="148" height="48"/><rect x="30" y="53" width="118" height="117"/>
+        <!-- E --><rect x="153" y="0" width="148" height="170"/>
+        <!-- N --><rect x="306" y="0" width="148" height="170"/>
+        <!-- T --><rect x="30" y="175" width="110" height="48"/><rect x="55" y="228" width="60" height="117"/>
+        <!-- A --><rect x="145" y="175" width="110" height="170"/>
+        <!-- C --><rect x="260" y="175" width="110" height="46"/><rect x="260" y="226" width="42" height="68"/><rect x="260" y="299" width="110" height="46"/>
+        <!-- T --><rect x="375" y="175" width="110" height="48"/><rect x="375" y="228" width="72" height="117"/>
+      </g>
+      <g fill="#000">
+        <!-- E arms --><rect x="205" y="55" width="96" height="5"/><rect x="205" y="112" width="96" height="5"/>
+        <!-- N --><rect x="356" y="50" width="5" height="120"/><rect x="399" y="0" width="5" height="120"/>
+        <!-- A counter + legs --><rect x="197" y="215" width="6" height="42"/><rect x="197" y="290" width="6" height="55"/>
+      </g>
+    </mask>
+  </defs>
+
+  <rect width="600" height="600" rx="112" fill="#D9191F"/>
+  <rect width="600" height="600" rx="112" fill="#D9191F" filter="url(#grain)" opacity=".22"/>
+
+  <g transform="translate(90 150.6) scale(.866)">
+    <g mask="url(#letters)">
+      <rect width="485" height="345" fill="#ECEBE8"/>
+      <!-- folded-paper shadows -->
+      <polygon points="30,53 148,53 148,58 30,74" fill="url(#fold)"/>
+      <polygon points="205,60 301,60 301,64 205,76" fill="url(#fold)"/>
+      <polygon points="145,175 370,175 370,180 145,198" fill="url(#fold)"/>
+      <polygon points="375,228 447,228 447,248 375,233" fill="url(#fold)"/>
+      <rect width="485" height="345" fill="#fff" filter="url(#grain)" opacity=".16"/>
+    </g>
+  </g>
+</svg>
