@@ -20,6 +20,10 @@ const MAX_SCROLL_VELOCITY = 0.9;
 /** Fraction of scroll velocity left after one second. */
 const VELOCITY_DECAY_PER_SECOND = 0.04;
 const HOVER_SCALE = 1.14;
+/** On small screens the ring is a band below the headline: smaller cards on an ellipse that fills the band. */
+const MOBILE_CARD_SCALE = 0.6;
+const MOBILE_RADIUS_X = 0.42;
+const MOBILE_RADIUS_Y = 0.34;
 
 interface RingCardState {
   element: HTMLElement;
@@ -57,13 +61,15 @@ export class RingScene {
   start(): void {
     this.bindHoverSprings();
     this.bindScrollNudge();
-    this.disposer.add(
-      observeOnce(
-        this.elements.section,
-        () => this.disposer.track(springValue(0, 1, (value) => (this.spread = value), { stiffness: 38, damping: 11 })),
-        0.3,
-      ),
-    );
+    if (!this.reduceMotion) {
+      this.disposer.add(
+        observeOnce(
+          this.elements.section,
+          () => this.disposer.track(springValue(0, 1, (value) => (this.spread = value), { stiffness: 38, damping: 11 })),
+          0.3,
+        ),
+      );
+    }
     this.disposer.add(startAnimationLoop((_, deltaSeconds) => this.renderFrame(deltaSeconds)));
   }
 
@@ -113,8 +119,8 @@ export class RingScene {
     const width = this.elements.ring.clientWidth;
     const height = this.elements.ring.clientHeight;
     const isMobile = width < MOBILE_BREAKPOINT;
-    const radiusX = isMobile ? width * 0.4 : Math.min(width * 0.41, 640);
-    const radiusY = isMobile ? height * 0.37 : Math.min(height * 0.35, 330);
+    const radiusX = isMobile ? width * MOBILE_RADIUS_X : Math.min(width * 0.41, 640);
+    const radiusY = isMobile ? height * MOBILE_RADIUS_Y : Math.min(height * 0.35, 330);
 
     // Time-based (rad/s) so it turns at the same speed on 60 Hz and 120 Hz screens.
     if (!this.reduceMotion) this.rotation += (BASE_SPEED + this.scrollVelocity) * deltaSeconds;
@@ -130,7 +136,7 @@ export class RingScene {
       const x = width / 2 + cos * radiusX * this.spread;
       const y = height / 2 + sin * radiusY * this.spread;
       const rotate = (-cos * 6 + card.tilt) * this.spread;
-      const scale = (0.74 + 0.34 * depth) * (isMobile ? 0.5 : 1) * (0.3 + 0.7 * this.spread) * card.hoverScale;
+      const scale = (0.74 + 0.34 * depth) * (isMobile ? MOBILE_CARD_SCALE : 1) * (0.3 + 0.7 * this.spread) * card.hoverScale;
 
       card.element.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) rotate(${rotate}deg) scale(${scale})`;
       card.element.style.zIndex = card.hoverScale > 1.01 ? "200" : String(Math.round(depth * 100));

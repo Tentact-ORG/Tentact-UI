@@ -1,0 +1,31 @@
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  color: var(--muted);
+}
+
+.title {
+  margin-top: 6px;
+  font-size: clamp(26px, 2.6vw, 34px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.description {
+  margin-top: 6px;
+  max-width: 640px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.description b {
+  color: var(--ink);
+  font-weight: 600;
+}

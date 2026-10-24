@@ -124,11 +124,19 @@
   display: inline-block;
 }
 
-/* ---------- side photos ---------- */
-.left {
+/* ---------- left column: photo above the copy ---------- */
+.leftColumn {
   position: absolute;
   left: 0;
-  top: 44%;
+  bottom: 56px;
+  width: min(300px, 26vw);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* ---------- side photos ---------- */
+.left {
   width: 16vw;
   max-width: 250px;
 }
@@ -168,10 +176,6 @@
 
 /* ---------- copy & actions ---------- */
 .copy {
-  position: absolute;
-  left: 0;
-  bottom: 56px;
-  width: min(300px, 26vw);
   font-size: 14px;
   color: var(--ink-2);
 }
@@ -295,7 +299,7 @@
     display: none;
   }
 
-  .copy,
+  .leftColumn,
   .cta,
   .flow {
     position: relative;
@@ -306,7 +310,7 @@
     width: auto;
   }
 
-  .copy { order: 3; }
+  .leftColumn { order: 3; }
   .cta { order: 4; flex-wrap: wrap; }
   .flow { order: 5; }
 }

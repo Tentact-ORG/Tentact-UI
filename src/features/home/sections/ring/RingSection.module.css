@@ -229,3 +229,37 @@
 @keyframes blink {
   50% { opacity: 0.25; }
 }
+
+/* ---------- phones ---------- */
+/* Matches MOBILE_BREAKPOINT in the scene: the headline sits on top and the ring orbits in a band
+   below it, so cards never pass over the copy. Kept last so it wins over the base rules above. */
+@media (max-width: 759px) {
+  .section {
+    height: auto;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    padding: 84px 0 64px;
+  }
+
+  .centerWrap {
+    position: static;
+    order: -1;
+    display: block;
+    padding: 0 var(--gut);
+  }
+
+  .center {
+    width: auto;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .ring {
+    position: relative;
+    inset: auto;
+    flex: 1;
+    min-height: 380px;
+    margin-top: 12px;
+  }
+}

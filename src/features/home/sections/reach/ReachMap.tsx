@@ -5,6 +5,7 @@ import { Reveal } from "@/components/ui/Reveal";
 import { useElementRecordList } from "@/hooks/useElementList";
 import { useScene } from "@/hooks/useScene";
 import { cx } from "@/lib/cx";
+import { formatThousands } from "@/lib/math";
 import { DATA_SOURCES, SOURCE_FILTER_ORDER, type SourceFilter } from "./reach.data";
 import { ReachScene, type PinElements, type RouteElements } from "./reach.scene";
 import type { MapGround, ReachMapModel } from "./reach.types";
@@ -150,7 +151,13 @@ export function ReachMap({ model }: ReachMapProps) {
             <div
               key={pin.city}
               ref={pins.register(index, "pin")}
-              className={cx(styles.pin, pin.labelAbove && styles.pinAbove, isDimmed && styles.pinDimmed)}
+              className={cx(
+                styles.pin,
+                pin.labelPosition === "above" && styles.pinAbove,
+                pin.labelPosition === "left" && styles.pinLeft,
+                pin.labelPosition === "right" && styles.pinRight,
+                isDimmed && styles.pinDimmed,
+              )}
               style={{ left: pin.left, top: pin.top, "--c": source.color } as CSSProperties}
             >
               <i className={styles.pinRipple} style={{ animationDelay: `${-index * 0.37}s` }} />
@@ -169,6 +176,29 @@ export function ReachMap({ model }: ReachMapProps) {
           );
         })}
       </div>
+
+      {/* Shown on phones only (see the stylesheet), where the pin labels are hidden. */}
+      <ol className={styles.markets} aria-label="Buyers found per market">
+        {model.pins.map((pin) => {
+          const source = DATA_SOURCES[pin.source];
+          const isDimmed = filter !== "all" && pin.source !== filter;
+          return (
+            <li
+              key={pin.city}
+              className={cx(styles.market, isDimmed && styles.marketDimmed)}
+              style={{ "--c": source.color } as CSSProperties}
+            >
+              <i aria-hidden="true" />
+              <span>
+                <b>{pin.city}</b>
+                <small>
+                  {formatThousands(pin.buyers)} buyers · {source.label}
+                </small>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
     </>
   );
 }

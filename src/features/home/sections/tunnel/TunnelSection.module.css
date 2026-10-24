@@ -23,8 +23,8 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: clamp(96px, 9.5vw, 150px);
-  height: clamp(130px, 13vw, 200px);
+  width: clamp(100px, 8.6vw, 172px);
+  height: clamp(133px, 11.5vw, 229px);
   border-radius: 6px;
   overflow: hidden;
   will-change: transform, opacity;
@@ -72,5 +72,22 @@
   .tunnel {
     height: min(36vw, 40vh);
     margin: min(56px, 5vh) 0 min(44px, 4vh);
+  }
+}
+
+/* Phones: the scene spreads the loop so only a few cards are on screen, as a flat band. */
+@media (max-width: 760px) {
+  .section {
+    padding: 90px 0;
+  }
+
+  .tunnel {
+    height: clamp(190px, 50vw, 300px);
+    margin: 40px 0 32px;
+  }
+
+  .card {
+    width: clamp(88px, 24vw, 120px);
+    height: clamp(117px, 32vw, 160px);
   }
 }

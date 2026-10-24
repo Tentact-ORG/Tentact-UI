@@ -1,0 +1,85 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 18px 16px;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 5px 10px 5px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(14, 14, 15, 0.05);
+  color: var(--ink-2);
+}
+
+.chip i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.toneInk {
+  background: var(--ink);
+  color: #fff;
+}
+
+.toneMint {
+  background: var(--mint);
+  color: #065f46;
+}
+
+.toneSky {
+  background: var(--sky);
+  color: #1e3a8a;
+}
+
+.toneYellow {
+  background: var(--yellow);
+  color: #713f12;
+}
+
+.tonePeach {
+  background: var(--peach);
+  color: #9a3412;
+}
+
+.value {
+  font-size: clamp(30px, 2.6vw, 38px);
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.detail {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: 14px 14px 14px;
+  }
+
+  .chip {
+    white-space: normal;
+    line-height: 1.2;
+    padding: 4px 9px 4px 7px;
+  }
+}

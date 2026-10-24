@@ -40,8 +40,14 @@
   opacity: 0;
 }
 
+/* Phones: let the example wrap onto a second line instead of cutting it off mid-sentence. */
 @media (max-width: 760px) {
   .query {
     max-width: 60vw;
+    white-space: normal;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 }

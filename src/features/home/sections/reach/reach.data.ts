@@ -17,14 +17,16 @@ export const DATA_SOURCES: Record<SourceKey, DataSource> = {
 /** Legend order. */
 export const SOURCE_FILTER_ORDER: readonly SourceKey[] = ["li", "gm", "jb", "nw"];
 
+/** Where a pin's label sits. Labels default to below the pin; neighbours that would collide move. */
+export type PinLabelPosition = "below" | "above" | "left" | "right";
+
 export interface MarketSpot {
   city: string;
   /** [longitude, latitude] */
   coordinates: [number, number];
   buyers: number;
   source: SourceKey;
-  /** Place the label above the pin instead of below it. */
-  labelAbove?: boolean;
+  labelPosition?: PinLabelPosition;
 }
 
 /** One ICP search, traced live across markets. */
@@ -33,9 +35,10 @@ export const MARKET_SPOTS: readonly MarketSpot[] = [
   { city: "São Paulo", coordinates: [-46.6, -23.5], buyers: 642, source: "jb" },
   { city: "London", coordinates: [-0.1, 51.5], buyers: 1207, source: "nw" },
   { city: "Bengaluru", coordinates: [77.6, 12.97], buyers: 1936, source: "li" },
-  { city: "Singapore", coordinates: [103.8, 1.35], buyers: 418, source: "gm" },
+  // Singapore sits just south-east of Bengaluru, under its label, so Singapore's label goes to the right.
+  { city: "Singapore", coordinates: [103.8, 1.35], buyers: 418, source: "gm", labelPosition: "right" },
   { city: "Sydney", coordinates: [151.2, -33.9], buyers: 533, source: "gm" },
-  { city: "Dubai", coordinates: [55.3, 25.2], buyers: 296, source: "jb", labelAbove: true },
+  { city: "Dubai", coordinates: [55.3, 25.2], buyers: 296, source: "jb", labelPosition: "above" },
 ];
 
 /** The animated route, as indexes into MARKET_SPOTS: SF → London → Bengaluru → Sydney → São Paulo → SF. */
