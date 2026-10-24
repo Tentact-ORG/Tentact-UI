@@ -136,16 +136,18 @@ export function TermsPage() {
     <div className={styles.page}>
       <ReadingProgress />
       <TermsNav />
-      <TermsHero />
-      <TermsGlance />
+      <main>
+        <TermsHero />
+        <TermsGlance />
 
-      <div className={styles.layout}>
-        <aside className={styles.aside}>
-          <TableOfContents entries={tocEntries} />
-          <HelpCard />
-        </aside>
-        <TermsArticle />
-      </div>
+        <div className={styles.layout}>
+          <aside className={styles.aside}>
+            <TableOfContents entries={tocEntries} />
+            <HelpCard />
+          </aside>
+          <TermsArticle />
+        </div>
+      </main>
 
       <TermsFooter />
       <BackToTop />

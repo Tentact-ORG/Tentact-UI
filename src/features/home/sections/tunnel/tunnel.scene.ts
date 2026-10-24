@@ -16,6 +16,13 @@ const AUTO_SPEED = 0.021;
 const SCROLL_INFLUENCE = 0.35;
 /** Scroll smoothing rate per second, so wheel steps don't make cards jump. */
 const SCROLL_SMOOTHING = 6;
+/** Half the loop's width as a fraction of the tunnel's width, on screens wide enough. */
+const HALF_LOOP_RATIO = 0.54;
+/** Smallest gap between neighbouring cards at the centre of the tunnel. */
+const CARD_GUTTER_PX = 8;
+/** Cards are drawn at this scale in the centre and grow by `EDGE_GROWTH` towards the edges. */
+const CENTRE_SCALE = 1;
+const EDGE_GROWTH = 0.7;
 
 /**
  * Audience cards stream outward from the centre of a perspective tunnel,
@@ -26,6 +33,7 @@ export class TunnelScene {
   private readonly reduceMotion = prefersReducedMotion();
   private readonly visibility: VisibilityTracker;
 
+  /** 0 → 1 as the tunnel opens up when first seen. */
   private spread: number;
   private autoOffset = 0;
   private smoothedScroll: number | null = null;
@@ -37,13 +45,15 @@ export class TunnelScene {
   }
 
   start(): void {
-    this.disposer.add(
-      observeOnce(
-        this.elements.tunnel,
-        () => this.disposer.track(springValue(0, 1, (value) => (this.spread = value), { stiffness: 34, damping: 10 })),
-        0.2,
-      ),
-    );
+    if (!this.reduceMotion) {
+      this.disposer.add(
+        observeOnce(
+          this.elements.tunnel,
+          () => this.disposer.track(springValue(0, 1, (value) => (this.spread = value), { stiffness: 34, damping: 10 })),
+          0.2,
+        ),
+      );
+    }
     this.disposer.add(startAnimationLoop((_, deltaSeconds) => this.renderFrame(deltaSeconds)));
   }
 
@@ -55,8 +65,12 @@ export class TunnelScene {
     if (!this.visibility.isVisible) return;
 
     const { tunnel, cards } = this.elements;
+    if (cards.length === 0) return;
+
+    // Layout reads first; everything after this only writes.
     const width = tunnel.clientWidth;
     const rect = tunnel.getBoundingClientRect();
+    const cardWidth = cards[0].offsetWidth;
 
     const scrollTarget = (window.innerHeight - rect.top) / (window.innerHeight + rect.height);
     this.smoothedScroll =
@@ -68,13 +82,18 @@ export class TunnelScene {
     if (!this.reduceMotion) this.autoOffset += deltaSeconds * AUTO_SPEED;
     const offset = this.autoOffset + this.smoothedScroll * SCROLL_INFLUENCE;
 
+    // The loop is never narrower than the cards need to sit side by side, so on
+    // small screens fewer cards are on screen at once instead of overlapping.
+    const halfLoop = Math.max(width * HALF_LOOP_RATIO, ((cardWidth + CARD_GUTTER_PX) * cards.length) / 2);
+    const reach = halfLoop * (0.35 + 0.65 * this.spread);
+
     cards.forEach((card, index) => {
       /** -1 (far left) … 0 (centre) … 1 (far right). */
       const position = ((((index / cards.length + offset) % 1) + 1) % 1 - 0.5) * 2;
       const distance = Math.abs(position);
 
-      const x = Math.sign(position) * Math.pow(distance, 0.95) * width * 0.54 * (0.35 + 0.65 * this.spread);
-      const scale = 0.8 + 1.05 * Math.pow(distance, 2.2);
+      const x = Math.sign(position) * Math.pow(distance, 0.95) * reach;
+      const scale = CENTRE_SCALE + EDGE_GROWTH * Math.pow(distance, 2.2);
       const rotateY = -Math.sign(position) * Math.min(58, distance * 70) * this.spread;
 
       card.style.transform = `translate(-50%,-50%) translateX(${x}px) rotateY(${rotateY}deg) scale(${scale})`;

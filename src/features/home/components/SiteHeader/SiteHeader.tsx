@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { ButtonLink } from "@/components/ui/ButtonLink";
-import { SITE } from "@/config/site";
+import Link from "next/link";
+import { ROUTES, SITE } from "@/config/site";
 import { cx } from "@/lib/cx";
 import { MENU_LINKS } from "../../data/navigation";
 import styles from "./SiteHeader.module.css";
@@ -70,10 +71,17 @@ export function SiteHeader() {
           </button>
         </div>
         <div className={styles.actions}>
-          <a className={styles.signIn} href="#">
+          <Link className={styles.signIn} href={ROUTES.login}>
             Sign in
-          </a>
-          <ButtonLink variant="red" href={SITE.demoUrl} target="_blank" rel="noopener" withArrow>
+          </Link>
+          <ButtonLink
+            variant="red"
+            className={styles.demo}
+            href={SITE.demoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            withArrow
+          >
             Book a demo
           </ButtonLink>
         </div>

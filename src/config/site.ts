@@ -8,7 +8,7 @@ export const SITE = {
   description:
     "The Tentact reaches across the live web to find the buyers you sell to — verified, complete and ready to work.",
   salesEmail: "sales@redmarten.com",
-  demoUrl: "https://cal.com/tech-team-xz70kb/30minsdemo",
+  demoUrl: "https://cal.com/sales-tentact-qcvuzq/30mins",
   copyrightYear: 2026,
 } as const;
 
@@ -17,6 +17,10 @@ export const ROUTES = {
   terms: "/terms",
   privacy: "/terms#privacy",
   pricing: "/#pricing",
+  login: "/login",
+  /** The signed-in workspace home. */
+  dashboard: "/home",
+  credits: "/credits",
 } as const;
 
 /** Builds a `mailto:` link to the sales inbox, optionally with a subject line. */

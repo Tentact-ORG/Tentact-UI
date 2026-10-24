@@ -52,7 +52,7 @@ export function ArcSection() {
         <div className={styles.features}>
           {ARC_FEATURES.map((feature) => (
             <Reveal key={feature.title}>
-              <h4>{feature.title}</h4>
+              <h3>{feature.title}</h3>
               <p>{feature.description}</p>
             </Reveal>
           ))}
