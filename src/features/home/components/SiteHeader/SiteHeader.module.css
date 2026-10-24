@@ -88,6 +88,40 @@
   }
 }
 
+/* Small phones: tighten the brand pill and drop the demo button's arrow so both fit side by side. */
+@media (max-width: 420px) {
+  .brand {
+    gap: 10px;
+    padding: 0 8px 0 12px;
+  }
+
+  .logo {
+    font-size: 16px;
+  }
+
+  .demo {
+    padding: 0 14px;
+    font-size: 13px;
+  }
+
+  .demo > span {
+    display: none;
+  }
+}
+
+/* The narrowest phones: keep the mark and the menu, hide the wordmark visually (it stays readable
+   to assistive technology, so the link keeps its name). */
+@media (max-width: 360px) {
+  .logo > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 .panel {
   position: fixed;
   top: 68px;

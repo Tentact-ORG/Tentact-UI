@@ -1,0 +1,97 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 0 11px;
+  border: 0;
+  border-bottom: 1px solid var(--line-2);
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input::placeholder {
+  color: var(--dim);
+}
+
+.input:focus-visible {
+  border-bottom-color: var(--ink);
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+.control:has(.trailing) .input {
+  padding-right: 40px;
+}
+
+.trailing {
+  position: absolute;
+  right: 0;
+  display: flex;
+  align-items: center;
+}
+
+.trailing button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--muted);
+  transition: background 0.2s, color 0.2s;
+}
+
+.trailing button:hover,
+.trailing button:focus-visible {
+  background: rgba(14, 14, 15, 0.06);
+  color: var(--ink);
+}
+
+.trailing svg {
+  width: 18px;
+  height: 18px;
+}
+
+.hint,
+.error {
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.hint {
+  color: var(--muted);
+}
+
+.error {
+  color: #c2410c;
+}
+
+.invalid .input {
+  border-bottom-color: #c2410c;
+}
+
+.invalid .input:focus-visible {
+  box-shadow: 0 1px 0 #c2410c;
+}

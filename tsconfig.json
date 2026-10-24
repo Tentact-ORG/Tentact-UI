@@ -20,5 +20,8 @@
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  // The dev server's generated validator imports types it does not use once metadata routes
+  // (sitemap, robots, opengraph-image) exist, which `noUnusedLocals` rejects. The build's own
+  // validator in .next/types still checks every route.
+  "exclude": ["node_modules", ".next/dev/types/validator.ts"]
 }

@@ -65,6 +65,18 @@
   flex-direction: column;
 }
 
+@media (max-width: 480px) {
+  .offerSide,
+  .includedSide {
+    padding: 28px 22px;
+  }
+
+  /* Lets the sealed price drop under its label instead of squeezing it. */
+  .row {
+    flex-wrap: wrap;
+  }
+}
+
 .rangoli {
   position: absolute;
   right: -150px;

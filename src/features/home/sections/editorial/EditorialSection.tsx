@@ -104,14 +104,22 @@ export function EditorialSection() {
           </span>
         </h2>
 
-        <div ref={leftPhotoRef} className={styles.left} data-intro="">
-          <div className={styles.photoFrame}>
-            <Image className={styles.photo} src="/assets/people/curly.jpg" alt="" fill sizes="250px" />
+        {/* The photo and the copy share one column so the gap between them stays constant at any viewport height. */}
+        <div className={styles.leftColumn}>
+          <div ref={leftPhotoRef} className={styles.left} data-intro="">
+            <div className={styles.photoFrame}>
+              <Image className={styles.photo} src="/assets/people/curly.jpg" alt="" fill sizes="250px" />
+            </div>
+            <div className={cx(styles.caption, "micro")}>
+              <span>Next buyer</span>
+              <span>Berlin →</span>
+            </div>
           </div>
-          <div className={cx(styles.caption, "micro")}>
-            <span>Next buyer</span>
-            <span>Berlin →</span>
-          </div>
+          <p ref={supportingItems.register(1)} className={styles.copy} data-intro="">
+            <span className="micro">What we do</span>
+            Everyone sells you the same tired list. We give you 420+ million verified data — filtered to your ICP, so
+            every name is someone you can actually sell to.
+          </p>
         </div>
         <div ref={rightPhotoRef} className={styles.right} data-intro="">
           <div className={styles.photoFrame}>
@@ -119,11 +127,6 @@ export function EditorialSection() {
           </div>
         </div>
 
-        <p ref={supportingItems.register(1)} className={styles.copy} data-intro="">
-          <span className="micro">What we do</span>
-          Everyone sells you the same tired list. We give you 420+ million verified data — filtered to your ICP, so
-          every name is someone you can actually sell to.
-        </p>
         <div ref={supportingItems.register(2)} className={styles.cta} data-intro="">
           <ButtonLink variant="line" href="#how">
             See how

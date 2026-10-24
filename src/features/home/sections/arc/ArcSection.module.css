@@ -120,7 +120,7 @@
   border-left: 1px solid var(--line);
 }
 
-.features h4 {
+.features h3 {
   font-family: var(--serif);
   font-weight: 400;
   font-size: 24px;

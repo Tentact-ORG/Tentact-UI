@@ -1,0 +1,269 @@
+.visual {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  min-height: 560px;
+  background: radial-gradient(ellipse 90% 70% at 50% 40%, #f1f1f4 0%, #e3e3e8 70%, #d9d9df 100%);
+  container-type: size;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---------- shared sphere look ---------- */
+.shape {
+  position: absolute;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  animation: float 9s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes float {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  100% { transform: translate3d(var(--dx, 10px), var(--dy, -18px), 0) rotate(var(--rot, 6deg)); }
+}
+
+/* Yellow-and-white striped ball, top left. */
+.striped {
+  width: 62%;
+  left: -12%;
+  top: -10%;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.7), transparent 28%),
+    radial-gradient(circle at 50% 50%, transparent 50%, rgba(120, 80, 0, 0.35) 100%),
+    repeating-linear-gradient(-38deg, #f5c542 0 7%, #fdf6dc 7% 14%);
+  box-shadow: 0 30px 60px -30px rgba(120, 80, 0, 0.45);
+  --dx: 8px;
+  --dy: 14px;
+  --rot: 10deg;
+  animation-duration: 11s;
+}
+
+/* Blue sphere, top right. */
+.blue {
+  width: 52%;
+  right: -16%;
+  top: 2%;
+  background: radial-gradient(circle at 32% 28%, #c9d4ff 0%, #7b8cff 32%, #4a55e0 75%, #3138b5 100%);
+  box-shadow: 0 30px 60px -28px rgba(49, 56, 181, 0.55);
+  --dx: -12px;
+  --dy: 16px;
+  animation-duration: 10s;
+  animation-delay: -3s;
+}
+
+/* Glass bubbles. */
+.glass {
+  background:
+    radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 0.95) 0 8%, transparent 20%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.15) 55%, rgba(170, 175, 200, 0.55) 100%);
+  box-shadow:
+    inset -6px -10px 18px rgba(255, 255, 255, 0.6),
+    inset 4px 6px 14px rgba(140, 145, 175, 0.25),
+    0 18px 30px -20px rgba(80, 85, 120, 0.4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.glassTop { width: 17%; left: 56%; top: 3%; --dy: 20px; animation-duration: 8s; animation-delay: -2s; }
+.glassLeft { width: 13%; left: -3%; top: 50%; --dx: 14px; animation-duration: 12s; }
+.glassRight { width: 22%; right: 2%; bottom: 20%; --dx: -10px; --dy: -14px; animation-duration: 9s; animation-delay: -5s; }
+
+/* Small pearl, left. */
+.pearl {
+  width: 15%;
+  left: -2%;
+  top: 30%;
+  background: radial-gradient(circle at 32% 28%, #ffffff 0%, #d9d9e6 40%, #a6a7bd 100%);
+  --dx: 10px;
+  animation-duration: 10s;
+  animation-delay: -6s;
+}
+
+/* Blue donut, bottom left. */
+.donut {
+  width: 26%;
+  left: 2%;
+  bottom: 18%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 24%, #3f49d6 25%, #8e9bff 42%, #5a66f0 58%, #2f37a8 74%, transparent 75%);
+  transform-origin: center;
+  rotate: -25deg;
+  scale: 1 1.3;
+  filter: drop-shadow(0 18px 18px rgba(47, 55, 168, 0.35));
+  --dy: -16px;
+  --rot: -8deg;
+  animation-duration: 12s;
+  animation-delay: -4s;
+}
+
+/* Yellow jelly blob, bottom. */
+.blob {
+  width: 30%;
+  left: 18%;
+  bottom: -8%;
+  border-radius: 58% 42% 50% 50% / 55% 50% 50% 45%;
+  background: radial-gradient(circle at 34% 30%, #fff3b0 0%, #ffd23f 35%, #e8a800 80%, #c98a00 100%);
+  box-shadow: 0 24px 40px -24px rgba(201, 138, 0, 0.6);
+  --dy: -14px;
+  --rot: 12deg;
+  animation-duration: 10s;
+  animation-delay: -1s;
+}
+
+/* Violet sphere, bottom right. */
+.violet {
+  width: 36%;
+  right: -10%;
+  bottom: 10%;
+  background: radial-gradient(circle at 30% 28%, #f0d9ff 0%, #b67cff 35%, #7d3fe0 78%, #5a25b0 100%);
+  box-shadow: 0 30px 50px -28px rgba(90, 37, 176, 0.55);
+  --dx: -8px;
+  --dy: -18px;
+  animation-duration: 11s;
+  animation-delay: -7s;
+}
+
+/* Blue pyramid, bottom right. */
+.pyramid {
+  width: 24%;
+  right: 22%;
+  bottom: -2%;
+  border-radius: 0;
+  clip-path: polygon(50% 0, 100% 86%, 0 100%);
+  background: linear-gradient(115deg, #8fa0ff 0%, #4a55e0 48%, #2a31a0 52%, #3b45cc 100%);
+  --dy: -12px;
+  --rot: -10deg;
+  animation-duration: 9s;
+  animation-delay: -2s;
+}
+
+/* ---------- the flower ---------- */
+.flower {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 54%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  animation: bob 6s ease-in-out infinite;
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-14px) rotate(3deg); }
+}
+
+.petals {
+  position: absolute;
+  inset: 0;
+  animation: spin 40s linear infinite;
+}
+
+@keyframes spin {
+  to { rotate: 360deg; }
+}
+
+.petals i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30%;
+  height: 46%;
+  margin: -46% 0 0 -15%;
+  border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%;
+  transform-origin: 50% 100%;
+  rotate: calc(var(--i) * 360deg / var(--n));
+  background: radial-gradient(ellipse at 50% 22%, #e4dcff 0%, #a493ff 38%, #7a66f2 72%, #5d49d6 100%);
+  box-shadow: inset 0 -8px 14px rgba(70, 50, 190, 0.35);
+}
+
+.face {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, #e9e3ff 0%, #a898ff 45%, #7b67ef 100%);
+  box-shadow:
+    inset 0 -10px 20px rgba(80, 60, 200, 0.35),
+    0 10px 24px -10px rgba(70, 50, 190, 0.5);
+}
+
+.eye {
+  position: absolute;
+  top: 34%;
+  width: 13%;
+  height: 22%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, #555 0 12%, #0e0e10 30%);
+  animation: blink 5s infinite;
+}
+
+.eye:first-child { left: 28%; }
+.eye:nth-child(2) { right: 28%; }
+
+@keyframes blink {
+  0%, 92%, 100% { scale: 1 1; }
+  95% { scale: 1 0.1; }
+}
+
+.nose {
+  position: absolute;
+  left: 50%;
+  top: 60%;
+  width: 9%;
+  height: 6%;
+  translate: -50% 0;
+  border-radius: 50% 50% 60% 60%;
+  background: #0e0e10;
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .shape,
+  .flower,
+  .petals,
+  .eye {
+    animation: none;
+  }
+}
+
+/* ---------- stacked layout: a short banner ---------- */
+@media (max-width: 900px) {
+  .visual {
+    min-height: 0;
+    height: 220px;
+    border-radius: 18px;
+  }
+
+  .flower {
+    width: auto;
+    height: 82%;
+    top: 50%;
+  }
+
+  .striped { width: 38%; top: -30%; }
+  .blue { width: 30%; top: -10%; }
+  .violet { width: 22%; }
+  .donut { width: 16%; bottom: 10%; }
+  .blob { width: 18%; bottom: -20%; }
+  .pyramid { width: 14%; }
+  .glassTop,
+  .glassLeft,
+  .pearl {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .visual {
+    height: 190px;
+  }
+}

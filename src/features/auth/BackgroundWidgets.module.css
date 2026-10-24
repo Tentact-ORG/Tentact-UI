@@ -1,0 +1,123 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.widget {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 40px -26px rgba(14, 14, 15, 0.45);
+  opacity: 0.85;
+  animation: drift 14s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.value {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.note {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+/* ---------- tones ---------- */
+.widget[data-tone="red"] {
+  background: var(--red);
+  border-color: transparent;
+  color: #fff;
+}
+
+.widget[data-tone="ink"] {
+  background: var(--ink);
+  border-color: transparent;
+  color: #fff;
+}
+
+.widget[data-tone="red"] .label,
+.widget[data-tone="red"] .note,
+.widget[data-tone="ink"] .label,
+.widget[data-tone="ink"] .note {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.widget[data-tone="yellow"] {
+  background: var(--yellow);
+  border-color: transparent;
+}
+
+.widget[data-tone="mint"] {
+  background: var(--mint);
+  border-color: transparent;
+}
+
+.widget[data-tone="sky"] {
+  background: var(--sky);
+  border-color: transparent;
+}
+
+/* ---------- placement: around the card, never under its centre ---------- */
+.widget[data-slot="database"] { top: 7%; left: 4%; --r: -6deg; animation-duration: 13s; }
+.widget[data-slot="lead"] { top: 40%; left: 2%; --r: 4deg; animation-duration: 16s; animation-delay: -4s; }
+.widget[data-slot="signal"] { bottom: 9%; left: 6%; --r: -3deg; animation-duration: 15s; animation-delay: -8s; }
+.widget[data-slot="hiring"] { top: 4%; left: 38%; --r: 3deg; animation-duration: 18s; animation-delay: -2s; }
+.widget[data-slot="icp"] { top: 8%; right: 4%; --r: 5deg; animation-duration: 14s; animation-delay: -6s; }
+.widget[data-slot="dial"] { top: 44%; right: 2%; --r: -4deg; animation-duration: 17s; animation-delay: -3s; }
+.widget[data-slot="export"] { bottom: 8%; right: 6%; --r: 3deg; animation-duration: 15s; animation-delay: -10s; }
+.widget[data-slot="intent"] { bottom: 3%; right: 30%; --r: -2deg; animation-duration: 19s; animation-delay: -7s; }
+
+@keyframes drift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(var(--r, 0deg));
+  }
+  50% {
+    transform: translate3d(14px, -22px, 0) rotate(calc(var(--r, 0deg) * -0.5));
+  }
+  100% {
+    transform: translate3d(-10px, 12px, 0) rotate(var(--r, 0deg));
+  }
+}
+
+/* Where the card fills most of the screen, the widgets would only sit behind it. */
+@media (max-width: 1180px) {
+  .widget[data-slot="hiring"],
+  .widget[data-slot="intent"],
+  .widget[data-slot="lead"],
+  .widget[data-slot="dial"] {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .layer {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .widget {
+    animation: none;
+  }
+}
