@@ -6,6 +6,8 @@ import styles from "./TermsPage.module.css";
 
 export const TERMS_META = {
   lastUpdated: "18 October 2026",
+  /** The same date, machine-readable, for the sitemap. Keep both in step. */
+  lastUpdatedIso: "2026-10-18",
   readingTime: "≈ 10 min read",
 } as const;
 

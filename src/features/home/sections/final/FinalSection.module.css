@@ -11,6 +11,10 @@
   .grid {
     grid-template-columns: 1fr;
   }
+
+  .cardInner {
+    margin: 0 auto;
+  }
 }
 
 .eyebrow {

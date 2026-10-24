@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import type { ReactNode } from "react";
+import { getSiteUrl } from "@/config/seo";
 import { SITE } from "@/config/site";
 import "./globals.css";
 
@@ -31,9 +32,35 @@ const instrumentSerif = Instrument_Serif({
   adjustFontFallback: false,
 });
 
+const DEFAULT_TITLE = `${SITE.name} — ${SITE.tagline}`;
+
+/**
+ * Site-wide defaults. Pages add their canonical URL and, where it differs, their
+ * own title and description; private pages (sign-in, dashboard) opt out of
+ * indexing themselves. The Open Graph image comes from `opengraph-image.tsx`.
+ */
 export const metadata: Metadata = {
-  title: `${SITE.name} — ${SITE.tagline}`,
+  metadataBase: getSiteUrl(),
+  title: { default: DEFAULT_TITLE, template: `%s — ${SITE.name}` },
   description: SITE.description,
+  applicationName: SITE.name,
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 },
+  },
+  openGraph: {
+    type: "website",
+    siteName: SITE.name,
+    locale: "en_US",
+    title: DEFAULT_TITLE,
+    description: SITE.description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: DEFAULT_TITLE,
+    description: SITE.description,
+  },
   icons: {
     icon: [
       { url: "/assets/logo/tentact-block-mark.svg", type: "image/svg+xml" },
@@ -46,6 +73,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#f1efea",
 };
 
 /**
