@@ -7,9 +7,7 @@ import { ApiError, dashboardApi, errorText, type ProspectListRecord, type SavedS
 import { buildFilterFields, isProspectFilters, type Facets, type FilterField } from "./prospecting/prospect.filters";
 import { createCountryNames, facetKeys, toSearchRequest } from "./prospecting/prospect.query";
 import {
-  DEFAULT_ENRICHMENT,
   EMPTY_FILTERS,
-  type EnrichmentOptions,
   type Prospect,
   type ProspectFilters,
   type ProspectList,
@@ -23,7 +21,7 @@ import { useProspectSearch, type ProspectSearchController } from "./prospecting/
  *
  * - the filter options discovered in the lead warehouse and the live search;
  * - the organization's saved searches and prospect lists (server-side);
- * - enrichment preferences, kept per account in this browser;
+ * - the export field choice (also set from the Enrich tab), kept per account in this browser;
  * - a status message announced to screen readers after actions.
  */
 interface WorkspaceData {
@@ -40,8 +38,6 @@ interface WorkspaceData {
   deleteSavedSearch: (id: string) => Promise<void>;
   createList: (name: string, prospects: readonly Prospect[]) => Promise<void>;
   deleteList: (id: string) => Promise<void>;
-  enrichment: EnrichmentOptions;
-  setEnrichment: Dispatch<SetStateAction<EnrichmentOptions>>;
   /** Field keys chosen in the export checklist (see src/lib/exportFields.ts), remembered in this browser. */
   exportFields: readonly string[];
   setExportFields: Dispatch<SetStateAction<readonly string[]>>;
@@ -52,14 +48,6 @@ interface WorkspaceData {
 }
 
 const WorkspaceDataContext = createContext<WorkspaceData | null>(null);
-
-function isEnrichmentOptions(value: unknown): value is EnrichmentOptions {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (Object.keys(DEFAULT_ENRICHMENT) as (keyof EnrichmentOptions)[]).every((key) => typeof (value as Record<string, unknown>)[key] === "boolean")
-  );
-}
 
 function toSavedSearch(record: SavedSearchRecord): SavedSearch {
   const filters = isProspectFilters(record.ui_state) ? record.ui_state : { ...EMPTY_FILTERS, query: record.natural_query ?? "" };
@@ -90,11 +78,6 @@ export function WorkspaceDataProvider({ storageKey, role, children }: WorkspaceD
   const fields = useMemo(() => buildFilterFields(facets, countries), [facets, countries]);
   const search = useProspectSearch(countries);
 
-  const [enrichment, setEnrichment] = useLocalStorageState<EnrichmentOptions>(
-    `tentact:${storageKey}:enrichment`,
-    DEFAULT_ENRICHMENT,
-    isEnrichmentOptions,
-  );
   const [exportFields, setExportFields] = useLocalStorageState<readonly string[]>(
     `tentact:${storageKey}:export-fields`,
     DEFAULT_EXPORT_FIELDS,
@@ -197,15 +180,13 @@ export function WorkspaceDataProvider({ storageKey, role, children }: WorkspaceD
       deleteSavedSearch,
       createList,
       deleteList,
-      enrichment,
-      setEnrichment,
       exportFields,
       setExportFields,
       role,
       status,
       announce: setStatus,
     }),
-    [fields, fieldsReady, fieldsError, search, savedSearches, lists, hydrated, saveSearch, deleteSavedSearch, createList, deleteList, enrichment, setEnrichment, exportFields, setExportFields, role, status],
+    [fields, fieldsReady, fieldsError, search, savedSearches, lists, hydrated, saveSearch, deleteSavedSearch, createList, deleteList, exportFields, setExportFields, role, status],
   );
 
   return <WorkspaceDataContext.Provider value={value}>{children}</WorkspaceDataContext.Provider>;

@@ -1,9 +1,9 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { buildCsv } from "@/features/dashboard/prospecting/prospect.export";
+import { buildFieldCsv } from "@/features/dashboard/prospecting/prospect.export";
 import { buildFilterFields, type Facets } from "@/features/dashboard/prospecting/prospect.filters";
 import { daysSince, recordToProspect } from "@/features/dashboard/prospecting/prospect.mapping";
 import { createCountryNames, facetKeys, hasSearchCriteria, toSearchRequest } from "@/features/dashboard/prospecting/prospect.query";
-import { DEFAULT_ENRICHMENT, EMPTY_FILTERS, type Prospect } from "@/features/dashboard/prospecting/prospect.types";
+import { EMPTY_FILTERS, type Prospect } from "@/features/dashboard/prospecting/prospect.types";
 import { prospectSnapshotSchema, type ProspectSnapshot } from "@/server/schemas/lists";
 import { searchRequestSchema } from "@/server/schemas/search";
 
@@ -22,7 +22,7 @@ describe("dashboard filters → search request", () => {
         industries: ["Software Development"],
         titles: ["Head of Growth"],
         hiring: ["Hiring now"],
-        sources: ["LinkedIn"],
+        sources: ["LinkedIn"], // no longer a filter: every contact has LinkedIn
         verifiedEmail: true,
         directDial: true,
         jobChange: "90",
@@ -36,7 +36,6 @@ describe("dashboard filters → search request", () => {
       { field: "new_combined_data.JOB_TITLE_PER", operator: "contains", value: "Head of Growth" },
       { field: "new_combined_data.JOB_LEVEL_PER", operator: "in", value: ["VP", "Director"] },
       { field: "new_combined_data.COUNTRY_CODE_PER", operator: "in", value: ["US", "IN"] },
-      { field: "new_combined_data.LINKEDIN_URL_PER", operator: "not_empty", value: true },
       { field: "company_data.industry", operator: "has", value: ["Software Development"] },
       { field: "new_combined_data.HEADQUARTERS_COUNTRY_NAME_ORG", operator: "in", value: ["United Kingdom"] },
       { field: "new_combined_data.IS_HIRING", operator: "eq", value: 1 },
@@ -139,11 +138,14 @@ describe("warehouse rows → prospects", () => {
 
 describe("client-side CSV export", () => {
   it("neutralises formula injection and includes contact details", () => {
-    const prospect = recordToProspect({ contact_id: "p", FIRST_NAME_PER: "=HYPERLINK(\"x\")", LAST_NAME_PER: "Doe", EMAIL_ADDRESS_PER: "a@b.co" }, 0, NOW);
-    const csv = buildCsv([prospect], DEFAULT_ENRICHMENT);
+    const prospect = recordToProspect(
+      { contact_id: "p", FIRST_NAME_PER: "=HYPERLINK(\"x\")", LAST_NAME_PER: "Doe", enriched_email: "a@b.co", COMBINED_TECH_ARRAY_ORG: ["HubSpot", "Slack"], IS_HIRING: 1 },
+      0,
+      NOW,
+    );
+    const csv = buildFieldCsv([prospect], ["first_name", "last_name", "email", "technologies", "hiring"]);
     const [header, row] = csv.split("\r\n");
-    expect(header.split(",")).toEqual(expect.arrayContaining(["Name", "Email", "Phone"]));
-    expect(row.startsWith(`"'=HYPERLINK(""x"") Doe"`)).toBe(true);
-    expect(row).toContain("a@b.co");
+    expect(header).toBe("First name,Last name,Email,Technologies,Hiring now");
+    expect(row).toBe(`"'=HYPERLINK(""x"")",Doe,a@b.co,HubSpot; Slack,Yes`);
   });
 });

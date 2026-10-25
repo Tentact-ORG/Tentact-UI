@@ -19,6 +19,15 @@ export interface ExportField {
   contactDetail?: boolean;
   /** Ticked when the user hasn't chosen yet. */
   byDefault?: boolean;
+  /** How a raw value reads in the CSV: lists joined with "; ", flags as Yes/No. */
+  format?: "list" | "yesNo";
+}
+
+/** A raw result value as it reads in the export. */
+export function formatExportValue(field: ExportField, value: unknown): unknown {
+  if (field.format === "list" && Array.isArray(value)) return value.filter((item) => item !== null && item !== "").join("; ");
+  if (field.format === "yesNo") return value === 1 || value === true || value === "1" ? "Yes" : value === 0 || value === false || value === "0" ? "No" : "";
+  return value;
 }
 
 export const EXPORT_FIELDS: readonly ExportField[] = [
@@ -56,11 +65,26 @@ export const EXPORT_FIELDS: readonly ExportField[] = [
   { key: "revenue", label: "Revenue", group: "Company", columns: ["REVENUE_RANGE_ORG", "revenue_range"] },
   { key: "headquarters", label: "Headquarters", group: "Company", columns: ["HEADQUARTERS_COUNTRY_NAME_ORG", "COUNTRY_NAME_ORG", "headquarters"] },
   { key: "funding", label: "Last funding", group: "Company", columns: ["LAST_FUNDING_TYPE_ORG", "funding_stage"] },
+  { key: "technologies", label: "Technologies", group: "Company", columns: ["COMBINED_TECH_ARRAY_ORG", "COMBINED_TECH_STRING_ORG", "technologies"], format: "list" },
+  { key: "hiring", label: "Hiring now", group: "Company", columns: ["IS_HIRING", "is_hiring"], format: "yesNo" },
   { key: "contact_id", label: "Contact ID", group: "Identifiers", columns: ["contact_id", "RBID_PER"] },
   { key: "company_id", label: "Company ID", group: "Identifiers", columns: ["RBID_ORG", "company_id"] },
 ];
 
 export const EXPORT_FIELD_GROUPS: readonly ExportFieldGroup[] = ["Person", "Contact details", "Company", "Identifiers"];
+
+/**
+ * The Enrich tab's choices: bundles of export fields, each backed by data in
+ * the warehouse. Ticking one adds its fields to the export checklist.
+ */
+export const EXPORT_BUNDLES: readonly { key: string; label: string; description: string; fields: readonly string[]; paid?: boolean }[] = [
+  { key: "email", label: "Work email", description: "The email and its verification status, where the contact has one.", fields: ["email", "email_status"], paid: true },
+  { key: "phone", label: "Phone number", description: "A direct or mobile number, where the contact has one.", fields: ["phone"], paid: true },
+  { key: "role", label: "Role and location", description: "Job title, seniority, department, persona, city, country and LinkedIn URL.", fields: ["job_title", "seniority", "department", "persona", "city", "country", "linkedin_url"] },
+  { key: "firmographics", label: "Company firmographics", description: "Company, website, industry, headcount, revenue band and headquarters.", fields: ["company", "website", "industry", "employees", "revenue", "headquarters"] },
+  { key: "technologies", label: "Technologies used", description: "The tools detected at the contact's company.", fields: ["technologies"] },
+  { key: "signals", label: "Hiring and funding", description: "Whether the company is hiring now, and its latest funding round.", fields: ["hiring", "funding"] },
+];
 
 export const DEFAULT_EXPORT_FIELDS: readonly string[] = EXPORT_FIELDS.filter((field) => field.byDefault).map((field) => field.key);
 

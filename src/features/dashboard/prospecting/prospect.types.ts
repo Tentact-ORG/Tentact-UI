@@ -5,11 +5,15 @@
  * options are discovered from it rather than fixed here.
  */
 
+/**
+ * Job start dates are recorded to the month (YYYY-MM-01), so a 30-day window
+ * matches nobody; these windows all have people in them.
+ */
 export const JOB_CHANGE_WINDOWS = [
   { value: "any", label: "Any time", days: null },
-  { value: "30", label: "Last 30 days", days: 30 },
   { value: "90", label: "Last 90 days", days: 90 },
   { value: "180", label: "Last 6 months", days: 180 },
+  { value: "365", label: "Last year", days: 365 },
 ] as const;
 export type JobChangeWindow = (typeof JOB_CHANGE_WINDOWS)[number]["value"];
 
@@ -107,25 +111,6 @@ export const EMPTY_FILTERS: ProspectFilters = {
   hiring: [],
   funding: [],
   intent: [],
-};
-
-/** What an export should include. */
-export interface EnrichmentOptions {
-  verifiedEmail: boolean;
-  directDial: boolean;
-  missingContactDetails: boolean;
-  companyFirmographics: boolean;
-  technologies: boolean;
-  signals: boolean;
-}
-
-export const DEFAULT_ENRICHMENT: EnrichmentOptions = {
-  verifiedEmail: true,
-  directDial: true,
-  missingContactDetails: true,
-  companyFirmographics: true,
-  technologies: false,
-  signals: false,
 };
 
 export interface SavedSearch {

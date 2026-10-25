@@ -12,7 +12,7 @@ import type { SearchRequest } from "../schemas/search";
 import { auditService } from "./auditService";
 import { chService } from "./clickhouseClient";
 import { rewriteOuterLimit } from "./clickhouseSql";
-import { resolveExportFields, type ExportField } from "@/lib/exportFields";
+import { formatExportValue, resolveExportFields, type ExportField } from "@/lib/exportFields";
 import { contactIdOf, hasContactDetails, isContactDetailColumn } from "./contactMasking";
 import { creditService } from "./creditService";
 import { sanitizeClickhouseSql } from "./queryExecutor";
@@ -293,10 +293,11 @@ export function projectExportFields(columns: readonly string[], rows: readonly u
   return {
     columns: fields.map((field) => field.label),
     rows: rows.map((row) =>
-      sources.map((candidates) => {
+      sources.map((candidates, f) => {
         for (const i of candidates) {
           const value = row[i];
-          if (value !== null && value !== undefined && String(value).trim() !== "") return value;
+          const empty = value === null || value === undefined || (Array.isArray(value) ? value.length === 0 : String(value).trim() === "");
+          if (!empty) return formatExportValue(fields[f], value);
         }
         return "";
       }),

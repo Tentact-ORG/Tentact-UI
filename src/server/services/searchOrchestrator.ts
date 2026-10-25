@@ -367,18 +367,27 @@ class SearchOrchestrationWorkflow {
  * "VP Sales"). Numeric and boolean values are covered by the column check.
  */
 export function missingStructuredFilters(filters: readonly StructuredFilter[], sql: string): string[] {
-  const literals = [...sql.matchAll(/'((?:[^']|'')*)'/g)].map((m) => m[1].replace(/''/g, "'").toLowerCase());
+  // Only the conditions count, not the selected columns: look after the first WHERE.
+  const where = sql.slice(Math.max(0, sql.search(/\bWHERE\b/i)));
   const missing: string[] = [];
   // Only exact column filters (table.column, as the dashboard sends) are checked; ICP hints such as
   // industry "Fintech" are meanings the generator maps onto real values.
   for (const filter of filters.filter((f) => f.field.includes("."))) {
-    const column = filter.field.split(".").pop() ?? filter.field;
-    if (!new RegExp(`\\b${column.replace(/[^A-Za-z0-9_]/g, "")}\\b`, "i").test(sql)) {
+    const column = (filter.field.split(".").pop() ?? filter.field).replace(/[^A-Za-z0-9_]/g, "");
+    const occurrences = [...where.matchAll(new RegExp(`\\b${column}\\b`, "gi"))].map((m) => m.index ?? 0);
+    if (occurrences.length === 0) {
       missing.push(`${column} (${filter.operator} ${JSON.stringify(filter.value)})`);
       continue;
     }
+    // Each text value must be a string literal in the same predicate: right after a use of the column.
     const values = (Array.isArray(filter.value) ? filter.value : [filter.value]).filter((v): v is string => typeof v === "string" && v.trim() !== "");
-    const absent = values.filter((v) => !literals.some((literal) => literal.includes(v.trim().toLowerCase())));
+    const absent = values.filter((v) => {
+      const needle = v.trim().toLowerCase();
+      return !occurrences.some((at) => {
+        const predicate = where.slice(at, at + 160 + needle.length * 2 + values.join("").length * 2);
+        return [...predicate.matchAll(/'((?:[^']|'')*)'/g)].some((m) => m[1].replace(/''/g, "'").toLowerCase().includes(needle));
+      });
+    });
     if (absent.length > 0) missing.push(`${column} ${filter.operator} ${absent.map((v) => `'${v}'`).join(", ")}`);
   }
   return missing;

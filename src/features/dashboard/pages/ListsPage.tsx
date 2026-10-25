@@ -18,7 +18,7 @@ export function ListsPage() {
       <PageHeader
         eyebrow="Prospecting"
         title="Lists"
-        description="Prospects you selected and saved together. Exports follow your enrichment settings."
+        description="Prospects you selected and saved together. Exports use the fields you chose in the export window or the Enrich tab."
         aside={
           <ButtonLink variant="ink" href={DASHBOARD_PAGES.search.href} withArrow>
             Build a list

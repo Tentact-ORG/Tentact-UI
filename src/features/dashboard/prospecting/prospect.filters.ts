@@ -9,7 +9,6 @@ import {
 import {
   EMPTY_FILTERS,
   JOB_CHANGE_WINDOWS,
-  type EnrichmentOptions,
   type JobChangeWindow,
   type MultiFilterKey,
   type ProspectFilters,
@@ -41,7 +40,6 @@ const MULTI_FIELDS: readonly { key: MultiFilterKey; tab: FieldBase["tab"]; label
   { key: "departments", tab: "people", label: "Department" },
   { key: "functions", tab: "people", label: "Persona" },
   { key: "countries", tab: "people", label: "Location" },
-  { key: "sources", tab: "people", label: "Data source" },
   { key: "companies", tab: "company", label: "Company" },
   { key: "industries", tab: "company", label: "Industry" },
   { key: "employees", tab: "company", label: "Employees" },
@@ -95,15 +93,6 @@ export function buildFilterFields(facets: Facets, countries: CountryNames): Filt
   fields.splice(firstCompany === -1 ? fields.length : firstCompany, 0, ...peopleToggles);
   return fields;
 }
-
-export const ENRICHMENT_FIELDS: readonly { key: keyof EnrichmentOptions; label: string; description: string }[] = [
-  { key: "verifiedEmail", label: "Verified work email", description: "Deliverability-checked address for every contact." },
-  { key: "directDial", label: "Direct dial", description: "A validated direct or mobile number where one exists." },
-  { key: "missingContactDetails", label: "Fill missing contact details", description: "Title, seniority and location gaps completed." },
-  { key: "companyFirmographics", label: "Company firmographics", description: "Industry, headcount, revenue band and headquarters." },
-  { key: "technologies", label: "Technologies used", description: "The tools detected on the company's web presence." },
-  { key: "signals", label: "Hiring, funding and intent signals", description: "Open roles, latest round and buying-intent level." },
-];
 
 const FILTER_LABELS: Record<Exclude<keyof ProspectFilters, "query">, string> = {
   titles: "Title",

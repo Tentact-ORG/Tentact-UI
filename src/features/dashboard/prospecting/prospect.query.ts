@@ -29,11 +29,7 @@ export const FILTER_COLUMNS: Partial<Record<MultiFilterKey, FilterColumn>> = {
   departments: { column: `${PEOPLE}.JOB_FUNCTION_PER`, operator: "in", optionsFrom: `${PEOPLE}.JOB_FUNCTION_PER` },
   functions: { column: `${PEOPLE}.PERSONA_PER`, operator: "in", optionsFrom: `${PEOPLE}.PERSONA_PER` },
   countries: { column: `${PEOPLE}.COUNTRY_CODE_PER`, operator: "in", optionsFrom: `${PEOPLE}.COUNTRY_CODE_PER`, countryCodes: true },
-  sources: {
-    column: `${PEOPLE}.LINKEDIN_URL_PER`,
-    operator: "not_empty",
-    fixedOptions: { LinkedIn: { operator: "not_empty", value: true } },
-  },
+  // No "data source" filter: every contact has a LinkedIn URL, so it would filter nothing.
   companies: { column: `${PEOPLE}.COMPANY_NAME_ORG`, operator: "contains", custom: true },
   industries: { column: `${COMPANY_ENRICHMENT}.industry`, operator: "has", optionsFrom: `${COMPANY_ENRICHMENT}.industry`, custom: true },
   employees: { column: `${PEOPLE}.EMPLOYEE_COUNT_RANGE_ORG`, operator: "in", optionsFrom: `${PEOPLE}.EMPLOYEE_COUNT_RANGE_ORG` },

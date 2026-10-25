@@ -1,11 +1,6 @@
 import { resolveExportFields } from "@/lib/exportFields";
 import { fullName } from "./prospect.matching";
-import type { EnrichmentOptions, Prospect } from "./prospect.types";
-
-interface CsvColumn {
-  header: string;
-  value: (prospect: Prospect) => string | number | boolean;
-}
+import type { Prospect } from "./prospect.types";
 
 const FORMULA_PREFIXES = new Set(["=", "+", "-", "@", "\t", "\r"]);
 
@@ -18,55 +13,6 @@ function csvCell(value: string | number | boolean): string {
   let text = String(value);
   if (text.length > 0 && FORMULA_PREFIXES.has(text[0])) text = `'${text}`;
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-const yesNo = (value: boolean) => (value ? "Yes" : "No");
-
-/** Columns follow the enrichment options, so the export matches what the visitor asked for. */
-export function buildCsvColumns(options: EnrichmentOptions): CsvColumn[] {
-  const columns: CsvColumn[] = [
-    { header: "Name", value: fullName },
-    { header: "Title", value: (p) => p.title },
-    { header: "Seniority", value: (p) => p.seniority },
-    { header: "Department", value: (p) => p.department },
-    { header: "Company", value: (p) => p.company.name },
-    { header: "City", value: (p) => p.city },
-    { header: "Country", value: (p) => p.country },
-  ];
-
-  if (options.verifiedEmail) {
-    columns.push({ header: "Email", value: (p) => p.email ?? "" }, { header: "Verified email", value: (p) => yesNo(p.verifiedEmail) });
-  }
-  if (options.directDial) columns.push({ header: "Phone", value: (p) => p.phone ?? "" });
-  if (options.missingContactDetails) {
-    columns.push({ header: "Persona", value: (p) => p.jobFunction }, { header: "LinkedIn", value: (p) => p.linkedinUrl ?? "" });
-  }
-  if (options.companyFirmographics) {
-    columns.push(
-      { header: "Industry", value: (p) => p.company.industry },
-      { header: "Employees", value: (p) => p.company.employees },
-      { header: "Revenue", value: (p) => p.company.revenue },
-      { header: "Headquarters", value: (p) => p.company.headquarters },
-      { header: "Website", value: (p) => p.company.website ?? "" },
-    );
-  }
-  if (options.technologies) columns.push({ header: "Technologies", value: (p) => p.company.technologies.join("; ") });
-  if (options.signals) {
-    columns.push(
-      { header: "Hiring", value: (p) => p.company.hiring.join("; ") },
-      { header: "Funding", value: (p) => p.company.funding },
-      { header: "Days in role", value: (p) => (p.jobChangeDays === null ? "" : p.jobChangeDays) },
-    );
-  }
-  columns.push({ header: "Sources", value: (p) => p.sources.join("; ") });
-  return columns;
-}
-
-export function buildCsv(prospects: readonly Prospect[], options: EnrichmentOptions): string {
-  const columns = buildCsvColumns(options);
-  const header = columns.map((column) => csvCell(column.header)).join(",");
-  const rows = prospects.map((prospect) => columns.map((column) => csvCell(column.value(prospect))).join(","));
-  return [header, ...rows].join("\r\n");
 }
 
 /** How each export field reads from a prospect on screen (the client-side twin of the server's column mapping). */
@@ -93,6 +39,8 @@ const PROSPECT_FIELD_VALUES: Record<string, (p: Prospect) => string> = {
   funding: (p) => p.company.funding,
   contact_id: (p) => p.id,
   company_id: (p) => p.company.id ?? "",
+  technologies: (p) => p.company.technologies.join("; "),
+  hiring: (p) => (p.company.hiring.length > 0 ? "Yes" : "No"),
 };
 
 /** A CSV of exactly the chosen export fields, headed by their labels. */

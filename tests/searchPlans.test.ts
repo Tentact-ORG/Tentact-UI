@@ -140,3 +140,13 @@ describe("applied filter check", () => {
     ]);
   });
 });
+
+describe("applied filter check, strict", () => {
+  it("rejects a filter whose column only appears in the selected columns, or whose value sits on another column", () => {
+    const filters = [{ field: "new_combined_data.JOB_TITLE_PER", operator: "contains" as const, value: ["Founder", "CEO"] }];
+    const swapped = "SELECT JOB_TITLE_PER, PERSONA_PER FROM new_combined_data WHERE PERSONA_PER = 'CEO / Founder' AND IS_HIRING = 1";
+    expect(missingStructuredFilters(filters, swapped)).toEqual(["JOB_TITLE_PER (contains [\"Founder\",\"CEO\"])"]);
+    const exact = "SELECT JOB_TITLE_PER FROM new_combined_data WHERE (ilike(JOB_TITLE_PER, '%Founder%') OR ilike(JOB_TITLE_PER, '%CEO%')) AND IS_HIRING = 1";
+    expect(missingStructuredFilters(filters, exact)).toEqual([]);
+  });
+});
