@@ -11,9 +11,8 @@ const isDevelopment = process.env.NODE_ENV === "development";
  * payload and the pre-animation guard in the root layout, and for styles by
  * React's inline `style` attributes; a nonce-based policy would force every page
  * to render dynamically. Development additionally needs `eval` (webpack), a
- * websocket (hot reload) and data: fonts (the error overlay). Allow a host under
- * `frame-src` if an external widget (for example the cal.com embed) is ever
- * placed inline.
+ * websocket (hot reload) and data: fonts (the error overlay). `frame-src` allows
+ * only cal.com, for the embedded demo booking.
  */
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -22,7 +21,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data:",
   `font-src 'self'${isDevelopment ? " data:" : ""}`,
   `connect-src 'self'${isDevelopment ? " ws: wss:" : ""}`,
-  "frame-src 'none'",
+  "frame-src https://cal.com https://app.cal.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

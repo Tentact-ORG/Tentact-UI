@@ -4,7 +4,9 @@ import Image from "next/image";
 import { useRef } from "react";
 import { FitFrame } from "@/components/ui/FitFrame";
 import { Reveal } from "@/components/ui/Reveal";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 import { buildSalesMailto, SITE } from "@/config/site";
+import { handleDemoLinkClick } from "../../components/DemoBooking/DemoBooking";
 import { usePointerTilt } from "@/hooks/usePointerTilt";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { cx } from "@/lib/cx";
@@ -37,6 +39,11 @@ export function FinalSection() {
               {SITE.salesEmail}
             </a>
             .
+          </Reveal>
+          <Reveal as="div" className={styles.ctas}>
+            <ButtonLink variant="red" href={SITE.demoUrl} target="_blank" rel="noopener noreferrer" onClick={handleDemoLinkClick} withArrow>
+              Book a 30-min demo
+            </ButtonLink>
           </Reveal>
         </div>
 

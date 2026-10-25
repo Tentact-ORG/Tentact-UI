@@ -11,8 +11,8 @@ const DEFAULT_ANTHROPIC_MODEL = "claude-opus-5-5";
 // Models that accept the server-side `fallbacks: "default"` refusal fallback on the Claude API.
 const DEFAULT_FALLBACK_MODELS = new Set(["claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"]);
 
-/** Which agent is calling: the SQL generator, the SQL reviewer, or the filter interpreter (a quick mapping task). */
-export type LLMAgent = "generator" | "reviewer" | "interpreter";
+/** Which agent is calling: the SQL generator, the SQL reviewer, the filter interpreter or the website assistant. */
+export type LLMAgent = "generator" | "reviewer" | "interpreter" | "assistant";
 
 /** Provider failure with a message that is safe to surface to API clients (no URLs or keys). */
 export class LLMProviderError extends Error {

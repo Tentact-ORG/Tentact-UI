@@ -1,5 +1,7 @@
 import { MotionGate } from "@/providers/MotionGate";
 import { SmoothScrollProvider } from "@/providers/SmoothScrollProvider";
+import { ChatAssistant } from "./components/ChatAssistant/ChatAssistant";
+import { DemoBooking } from "./components/DemoBooking/DemoBooking";
 import { SiteFooter } from "./components/SiteFooter/SiteFooter";
 import { SiteHeader } from "./components/SiteHeader/SiteHeader";
 import { ArcSection } from "./sections/arc/ArcSection";
@@ -28,6 +30,8 @@ export function HomePage() {
           <FinalSection />
         </main>
         <SiteFooter />
+        <DemoBooking />
+        <ChatAssistant />
       </MotionGate>
     </SmoothScrollProvider>
   );
