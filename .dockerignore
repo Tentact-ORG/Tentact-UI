@@ -1,0 +1,11 @@
+.git
+.next
+node_modules
+tests
+*.db
+*.db-*
+exports_storage
+.env
+.env.*
+!.env.example
+.DS_Store

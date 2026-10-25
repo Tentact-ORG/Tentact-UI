@@ -123,7 +123,8 @@
   border-radius: 20px;
   border: 1px solid var(--line);
   background: var(--paper);
-  overflow: hidden;
+  /* Visible, so a filter's dropdown can extend past the panel's edge. */
+  overflow: visible;
 }
 
 .panelHead {
@@ -134,6 +135,7 @@
   flex-wrap: wrap;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
+  border-radius: 20px 20px 0 0;
   background: #fff;
 }
 
@@ -1034,4 +1036,446 @@
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+/* "Load more" under the results table, when the server has more pages. */
+.loadMore {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 4px;
+}
+
+/* ---------- request → filters review strip ---------- */
+.assist {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--yellow);
+  font-size: 13.5px;
+}
+
+.assist p {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.assistActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.assistError {
+  color: #a1251b;
+}
+
+/* ---------- export confirmation ---------- */
+.dialog {
+  width: min(640px, calc(100vw - 32px));
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 22px;
+  background: var(--paper, #fff);
+  color: var(--ink);
+  box-shadow: 0 30px 80px -30px rgba(14, 14, 15, 0.45);
+}
+
+.dialog::backdrop {
+  background: rgba(14, 14, 15, 0.4);
+}
+
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px;
+}
+
+.dialogTitle {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.dialogLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dialogChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.dialogChip {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+}
+
+.dialogFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+}
+
+.dialogFacts dt {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.dialogFacts dd {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.dialogInput {
+  width: 100%;
+  height: 42px;
+  margin-bottom: 6px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-2);
+  font: inherit;
+  font-size: 15px;
+}
+
+.dialogInput:focus-visible {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.dialogNote {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--yellow);
+  font-size: 13px;
+}
+
+.dialogWarning {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13.5px;
+  color: #a1251b;
+}
+
+.dialogActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+/* ---------- collapsible filter groups and suggestions ---------- */
+.groupToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  color: inherit;
+}
+
+.groupChevron {
+  transition: transform 0.15s ease;
+  color: var(--muted);
+}
+
+.groupChevronOpen {
+  transform: rotate(90deg);
+}
+
+.groupClosed .groupLegend {
+  margin-bottom: 0;
+}
+
+.groupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.groupBody[hidden] {
+  display: none;
+}
+
+.suggestions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.suggestionsLabel {
+  margin-right: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.suggestion {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--line-2);
+  background: transparent;
+  font-size: 12.5px;
+}
+
+.suggestion:hover {
+  border-style: solid;
+  border-color: var(--ink);
+}
+
+.panelSuggestions {
+  padding: 12px 18px 0;
+}
+
+/* ---------- export field checklist ---------- */
+.fieldChecklist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.fieldChecklist legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.fieldGroup {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.fieldGroupName {
+  padding-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.fieldOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fieldOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.fieldOption input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.fieldOption small {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.fieldOptionOn {
+  border-color: var(--ink);
+  background: rgba(14, 14, 15, 0.04);
+}
+
+.fieldOption:has(input:focus-visible) {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.dialog {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+@media (max-width: 560px) {
+  .fieldGroup {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- "What we understood": query words → filters ---------- */
+.understood {
+  flex: 1 1 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.understoodTitle {
+  margin-bottom: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.understoodRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 34%) minmax(0, 1fr);
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(14, 14, 15, 0.08);
+}
+
+.understoodRow:first-child {
+  border-top: 0;
+}
+
+.understoodRow dt {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.understoodRow dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  min-width: 0;
+  margin: 0;
+}
+
+.understoodItem {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.understoodItem b {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+@media (max-width: 640px) {
+  .understoodRow {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+/* ---------- searchable dropdown (long and free-text filters) ---------- */
+.combo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comboChosen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.comboChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 4px 6px 4px 11px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.comboChip button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.comboChip button:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.comboList {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 264px;
+  margin: 4px 0 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: 0 18px 40px -20px rgba(14, 14, 15, 0.35);
+}
+
+.comboItem {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.comboItem mark {
+  background: none;
+  color: inherit;
+  font-weight: 700;
+}
+
+.comboItemActive {
+  background: rgba(14, 14, 15, 0.06);
+}
+
+.comboAdd {
+  color: var(--ink-2);
+  font-style: italic;
+}
+
+.comboStatus {
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--muted);
 }

@@ -51,8 +51,8 @@ export function SavedSearches({ searches, onApply, onDelete, limit, viewAllHref 
       </div>
       {searches.length === 0 ? (
         <p className={styles.panelCardEmpty}>
-          Save a filter combination from Prospect search to reuse it later. Saved searches stay in this browser until the
-          workspace is connected to your account.
+          Save a filter combination from Prospect search to reuse it later. Saved searches are shared with everyone in
+          your workspace.
         </p>
       ) : (
         <ul className={styles.panelList}>
@@ -107,7 +107,7 @@ export function ProspectLists({ lists, onExport, onDelete, limit, viewAllHref }:
               <div className={styles.stack}>
                 <b>{list.name}</b>
                 <small>
-                  {list.prospectIds.length} prospect{list.prospectIds.length === 1 ? "" : "s"} · created {formatDate(list.createdAt)}
+                  {list.prospects.length} prospect{list.prospects.length === 1 ? "" : "s"} · created {formatDate(list.createdAt)}
                 </small>
               </div>
               <div className={styles.panelItemActions}>

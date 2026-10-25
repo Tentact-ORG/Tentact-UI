@@ -9,6 +9,8 @@ export const SITE = {
     "The Tentact reaches across the live web to find the buyers you sell to — verified, complete and ready to work.",
   salesEmail: "sales@redmarten.com",
   demoUrl: "https://cal.com/sales-tentact-qcvuzq/30mins",
+  /** The landing page chat assistant (the mascot). */
+  assistantName: "Mivy",
   copyrightYear: 2026,
 } as const;
 

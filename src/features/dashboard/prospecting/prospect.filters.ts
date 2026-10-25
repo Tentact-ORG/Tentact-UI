@@ -1,18 +1,16 @@
+import type { ColumnValues, InterpretField, InterpretResponse } from "../api/dashboard.api";
 import {
-  DEPARTMENTS,
-  EMPLOYEE_BANDS,
+  DIRECT_DIAL_FILTER,
+  FILTER_COLUMNS,
+  VERIFIED_EMAIL_FILTER,
+  type CountryNames,
+  type FilterColumn,
+} from "./prospect.query";
+import {
   EMPTY_FILTERS,
-  FUNDING_STAGES,
-  HIRING_SIGNALS,
-  INTENT_LEVELS,
   JOB_CHANGE_WINDOWS,
-  PROSPECT_SOURCES,
-  REVENUE_BANDS,
-  SENIORITIES,
-  type EnrichmentOptions,
   type JobChangeWindow,
   type MultiFilterKey,
-  type Prospect,
   type ProspectFilters,
   type ToggleFilterKey,
 } from "./prospect.types";
@@ -25,60 +23,94 @@ interface FieldBase {
 }
 
 export type FilterField =
-  | (FieldBase & { kind: "multi"; key: MultiFilterKey; options: readonly string[] })
+  | (FieldBase & {
+      kind: "multi";
+      key: MultiFilterKey;
+      options: readonly string[];
+      allowCustom: boolean;
+      /** Warehouse column (table.column) whose matching values are looked up as the user types. */
+      suggestKey?: string;
+    })
   | (FieldBase & { kind: "toggle"; key: ToggleFilterKey; description: string })
   | (FieldBase & { kind: "choice"; key: "jobChange"; options: readonly { value: JobChangeWindow; label: string }[] });
+
+/** Discovered values for the warehouse columns behind the filters (`/api/search/metadata/values`). */
+export type Facets = Readonly<Record<string, ColumnValues>>;
 
 function uniqueSorted(values: Iterable<string>): string[] {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
-/**
- * The filter registry. Enumerated attributes have fixed options; free-text
- * attributes (titles, companies, locations, technologies…) offer the values
- * present in the workspace's data.
- */
-export function buildFilterFields(prospects: readonly Prospect[]): FilterField[] {
-  return [
-    { kind: "multi", tab: "people", key: "titles", label: "Job title", options: uniqueSorted(prospects.map((p) => p.title)) },
-    { kind: "multi", tab: "people", key: "seniorities", label: "Seniority", options: SENIORITIES },
-    { kind: "multi", tab: "people", key: "departments", label: "Department", options: DEPARTMENTS },
-    { kind: "multi", tab: "people", key: "functions", label: "Job function", options: uniqueSorted(prospects.map((p) => p.jobFunction)) },
-    { kind: "multi", tab: "people", key: "countries", label: "Location", options: uniqueSorted(prospects.map((p) => p.country)) },
-    { kind: "choice", tab: "people", key: "jobChange", label: "Changed jobs", options: JOB_CHANGE_WINDOWS },
-    { kind: "toggle", tab: "people", key: "verifiedEmail", label: "Verified email only", description: "Email checked before delivery" },
-    { kind: "toggle", tab: "people", key: "directDial", label: "Direct dial only", description: "A validated phone number on record" },
-    { kind: "multi", tab: "people", key: "sources", label: "Data source", options: PROSPECT_SOURCES },
+const MULTI_FIELDS: readonly { key: MultiFilterKey; tab: FieldBase["tab"]; label: string }[] = [
+  { key: "titles", tab: "people", label: "Job title" },
+  { key: "seniorities", tab: "people", label: "Seniority" },
+  { key: "departments", tab: "people", label: "Department" },
+  { key: "functions", tab: "people", label: "Persona" },
+  { key: "countries", tab: "people", label: "Country" },
+  { key: "cities", tab: "people", label: "City" },
+  { key: "companies", tab: "company", label: "Company" },
+  { key: "industries", tab: "company", label: "Industry" },
+  { key: "employees", tab: "company", label: "Employees" },
+  { key: "revenue", tab: "company", label: "Revenue" },
+  { key: "headquarters", tab: "company", label: "Headquarters" },
+  { key: "technologies", tab: "company", label: "Technologies used" },
+  { key: "hiring", tab: "company", label: "Hiring activity" },
+  { key: "funding", tab: "company", label: "Funding" },
+];
 
-    { kind: "multi", tab: "company", key: "companies", label: "Company", options: uniqueSorted(prospects.map((p) => p.company.name)) },
-    { kind: "multi", tab: "company", key: "industries", label: "Industry", options: uniqueSorted(prospects.map((p) => p.company.industry)) },
-    { kind: "multi", tab: "company", key: "employees", label: "Employees", options: EMPLOYEE_BANDS },
-    { kind: "multi", tab: "company", key: "revenue", label: "Revenue", options: REVENUE_BANDS },
-    { kind: "multi", tab: "company", key: "headquarters", label: "Headquarters", options: uniqueSorted(prospects.map((p) => p.company.headquarters)) },
-    { kind: "multi", tab: "company", key: "technologies", label: "Technologies used", options: uniqueSorted(prospects.flatMap((p) => p.company.technologies)) },
-    { kind: "multi", tab: "company", key: "hiring", label: "Hiring activity", options: HIRING_SIGNALS },
-    { kind: "multi", tab: "company", key: "funding", label: "Funding", options: FUNDING_STAGES },
-    { kind: "multi", tab: "company", key: "intent", label: "Buying intent", options: INTENT_LEVELS },
-  ];
+/** A column the caller may query and that holds data. */
+function usable(facets: Facets, column: string): boolean {
+  const facet = facets[column];
+  return facet !== undefined && !facet.empty;
 }
 
-export const ENRICHMENT_FIELDS: readonly { key: keyof EnrichmentOptions; label: string; description: string }[] = [
-  { key: "verifiedEmail", label: "Verified work email", description: "Deliverability-checked address for every contact." },
-  { key: "directDial", label: "Direct dial", description: "A validated direct or mobile number where one exists." },
-  { key: "missingContactDetails", label: "Fill missing contact details", description: "Title, seniority and location gaps completed." },
-  { key: "companyFirmographics", label: "Company firmographics", description: "Industry, headcount, revenue band and headquarters." },
-  { key: "technologies", label: "Technologies used", description: "The tools detected on the company's web presence." },
-  { key: "signals", label: "Hiring, funding and intent signals", description: "Open roles, latest round and buying-intent level." },
-];
+function optionsFor(definition: FilterColumn, facets: Facets, countries: CountryNames): string[] {
+  if (definition.fixedOptions) return Object.keys(definition.fixedOptions);
+  const values = definition.optionsFrom ? (facets[definition.optionsFrom]?.values ?? []) : [];
+  return uniqueSorted(definition.countryCodes ? values.map((code) => countries.name(code)) : values);
+}
+
+/**
+ * The filter registry. Every filter maps to a warehouse column (see
+ * `prospect.query.ts`); options are the values discovered in that column, and
+ * filters whose column is unavailable to this user or holds no data are left out.
+ */
+export function buildFilterFields(facets: Facets, countries: CountryNames): FilterField[] {
+  const fields: FilterField[] = [];
+  for (const { key, tab, label } of MULTI_FIELDS) {
+    const definition = FILTER_COLUMNS[key];
+    if (!definition || !usable(facets, definition.column)) continue;
+    const options = optionsFor(definition, facets, countries);
+    const allowCustom = definition.custom === true;
+    if (options.length === 0 && !allowCustom) continue;
+    fields.push({ kind: "multi", tab, key, label, options, allowCustom, ...(definition.suggestFrom ? { suggestKey: definition.suggestFrom } : {}) });
+  }
+
+  const peopleToggles: FilterField[] = [];
+  if (usable(facets, "new_combined_data.JOB_START_DATE")) {
+    peopleToggles.push({ kind: "choice", tab: "people", key: "jobChange", label: "Changed jobs", options: JOB_CHANGE_WINDOWS });
+  }
+  if (usable(facets, VERIFIED_EMAIL_FILTER.field)) {
+    peopleToggles.push({ kind: "toggle", tab: "people", key: "verifiedEmail", label: "Verified email only", description: "Email checked before delivery" });
+  }
+  if (usable(facets, DIRECT_DIAL_FILTER.field)) {
+    peopleToggles.push({ kind: "toggle", tab: "people", key: "directDial", label: "Phone number only", description: "A phone number on record" });
+  }
+  // Keep the toggles after the people list filters and before the company tab.
+  const firstCompany = fields.findIndex((field) => field.tab === "company");
+  fields.splice(firstCompany === -1 ? fields.length : firstCompany, 0, ...peopleToggles);
+  return fields;
+}
 
 const FILTER_LABELS: Record<Exclude<keyof ProspectFilters, "query">, string> = {
   titles: "Title",
   seniorities: "Seniority",
   departments: "Department",
-  functions: "Function",
-  countries: "Location",
+  functions: "Persona",
+  countries: "Country",
+  cities: "City",
   verifiedEmail: "Verified email",
-  directDial: "Direct dial",
+  directDial: "Phone",
   jobChange: "Changed jobs",
   sources: "Source",
   companies: "Company",
@@ -133,7 +165,59 @@ export function isProspectFilters(value: unknown): value is ProspectFilters {
   return (Object.keys(EMPTY_FILTERS) as (keyof ProspectFilters)[]).every((key) => {
     const expected = EMPTY_FILTERS[key];
     const actual = candidate[key];
+    if (actual === undefined) return true; // filters added later (e.g. City) default to empty
     if (Array.isArray(expected)) return Array.isArray(actual) && actual.every((item) => typeof item === "string");
     return typeof actual === typeof expected;
   });
+}
+
+/** The filter fields as the interpreter endpoint expects them (choice fields by label). */
+export function toInterpretFields(fields: readonly FilterField[]): InterpretField[] {
+  return fields.map((field) => {
+    if (field.kind === "multi") return { key: field.key, label: field.label, kind: "multi", options: field.options.slice(0, 600), allow_custom: field.allowCustom };
+    if (field.kind === "toggle") return { key: field.key, label: field.label, kind: "toggle", options: [], allow_custom: false };
+    return { key: field.key, label: field.label, kind: "choice", options: field.options.map((option) => option.label), allow_custom: false };
+  });
+}
+
+/**
+ * Applies an interpretation to the current filters: fields it names are replaced,
+ * others are kept, and the search text becomes whatever no filter could express.
+ */
+export function applyInterpretation(base: ProspectFilters, result: InterpretResponse, fields: readonly FilterField[]): ProspectFilters {
+  const next: ProspectFilters = { ...base, query: result.remaining_query };
+  for (const field of fields) {
+    const values = result.filters[field.key];
+    if (!values || values.length === 0) continue;
+    if (field.kind === "multi") next[field.key] = values;
+    else if (field.kind === "toggle") next[field.key] = values.includes("true");
+    else {
+      const choice = field.options.find((option) => option.label === values[0]);
+      if (choice) next.jobChange = choice.value;
+    }
+  }
+  return next;
+}
+
+/** One line of "What we understood": the words of the query and the filters taken from them. */
+export interface UnderstoodPhrase {
+  /** The words of the query; null when the model didn't say which words a filter came from. */
+  phrase: string | null;
+  items: { label: string; values: string[] }[];
+}
+
+/** Groups an interpretation's filters by the words of the query they came from, in query order. */
+export function explainInterpretation(query: string, result: InterpretResponse, fields: readonly FilterField[]): UnderstoodPhrase[] {
+  const rows = new Map<string | null, UnderstoodPhrase>();
+  for (const field of fields) {
+    const values = result.filters[field.key];
+    if (!values || values.length === 0) continue;
+    const shown = field.kind === "toggle" ? ["Yes"] : values;
+    const phrase = result.evidence?.[field.key] ?? null;
+    const row = rows.get(phrase) ?? { phrase, items: [] };
+    row.items.push({ label: field.label, values: shown });
+    rows.set(phrase, row);
+  }
+  const position = (phrase: string | null) => (phrase === null ? Number.MAX_SAFE_INTEGER : query.toLowerCase().indexOf(phrase.toLowerCase()));
+  return [...rows.values()].sort((a, b) => position(a.phrase) - position(b.phrase));
 }

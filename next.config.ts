@@ -11,9 +11,8 @@ const isDevelopment = process.env.NODE_ENV === "development";
  * payload and the pre-animation guard in the root layout, and for styles by
  * React's inline `style` attributes; a nonce-based policy would force every page
  * to render dynamically. Development additionally needs `eval` (webpack), a
- * websocket (hot reload) and data: fonts (the error overlay). Allow a host under
- * `frame-src` if an external widget (for example the cal.com embed) is ever
- * placed inline.
+ * websocket (hot reload) and data: fonts (the error overlay). `frame-src` allows
+ * only cal.com, for the embedded demo booking.
  */
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -22,7 +21,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data:",
   `font-src 'self'${isDevelopment ? " data:" : ""}`,
   `connect-src 'self'${isDevelopment ? " ws: wss:" : ""}`,
-  "frame-src 'none'",
+  "frame-src https://cal.com https://app.cal.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -45,6 +44,14 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Self-contained server bundle for the Docker image; `next start` is used locally.
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
+  // Native / Node-only packages used by the API layer are loaded from node_modules at runtime, not bundled.
+  serverExternalPackages: ["better-sqlite3", "@node-rs/argon2", "pg", "@clickhouse/client", "@anthropic-ai/sdk", "openai"],
+  // Files read at runtime that output tracing cannot discover on its own.
+  outputFileTracingIncludes: {
+    "/api/**/*": ["./database/synthetic_seed_data.json"],
+  },
   // Ship minified bundles only; source maps would hand the original TypeScript to anyone who opens devtools.
   productionBrowserSourceMaps: false,
   async headers() {

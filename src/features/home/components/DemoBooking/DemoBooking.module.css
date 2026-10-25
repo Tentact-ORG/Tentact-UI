@@ -1,0 +1,95 @@
+.dialog {
+  width: min(980px, calc(100vw - 32px));
+  height: min(760px, calc(100dvh - 32px));
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 40px 120px -40px rgba(14, 14, 15, 0.6);
+  overflow: hidden;
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog::backdrop {
+  background: rgba(14, 14, 15, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.sub {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.close {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.close:hover {
+  border-color: var(--ink);
+}
+
+.frameWrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+}
+
+.frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.fallback {
+  padding: 10px 22px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.fallback a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

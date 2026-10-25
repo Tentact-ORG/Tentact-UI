@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const session = await requireSession();
 
   return (
-    <DashboardShell workspace={{ name: session.workspaceName }} user={{ email: session.email }}>
+    <DashboardShell workspace={{ name: session.workspaceName }} user={{ email: session.email, role: session.role }}>
       {children}
     </DashboardShell>
   );

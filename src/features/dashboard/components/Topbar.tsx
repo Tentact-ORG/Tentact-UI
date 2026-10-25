@@ -41,7 +41,7 @@ export function Topbar({ workspace, user, menuOpen, sidebarId, onToggleMenu }: T
         <nav aria-label="Breadcrumb" className={styles.breadcrumb}>
           <ol>
             <li>
-              <Link href={DASHBOARD_PAGES.overview.href} className={styles.crumbHome} aria-label="Home">
+              <Link href={DASHBOARD_PAGES.search.href} className={styles.crumbHome} aria-label="Prospect search">
                 <HomeIcon />
               </Link>
             </li>

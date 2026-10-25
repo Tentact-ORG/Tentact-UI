@@ -1,56 +1,53 @@
+import { resolveExportFields } from "@/lib/exportFields";
 import { fullName } from "./prospect.matching";
-import type { EnrichmentOptions, Prospect } from "./prospect.types";
+import type { Prospect } from "./prospect.types";
 
-interface CsvColumn {
-  header: string;
-  value: (prospect: Prospect) => string | number | boolean;
-}
+const FORMULA_PREFIXES = new Set(["=", "+", "-", "@", "\t", "\r"]);
 
+/**
+ * Quotes a CSV cell and neutralises spreadsheet formula injection: values that
+ * start with =, +, -, @, tab or carriage return get a leading single quote,
+ * matching the server-side export.
+ */
 function csvCell(value: string | number | boolean): string {
-  const text = String(value);
+  let text = String(value);
+  if (text.length > 0 && FORMULA_PREFIXES.has(text[0])) text = `'${text}`;
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-/** Columns follow the enrichment options, so the export matches what the visitor asked for. */
-export function buildCsvColumns(options: EnrichmentOptions): CsvColumn[] {
-  const columns: CsvColumn[] = [
-    { header: "Name", value: fullName },
-    { header: "Title", value: (p) => p.title },
-    { header: "Seniority", value: (p) => p.seniority },
-    { header: "Department", value: (p) => p.department },
-    { header: "Company", value: (p) => p.company.name },
-    { header: "City", value: (p) => p.city },
-    { header: "Country", value: (p) => p.country },
-  ];
+/** How each export field reads from a prospect on screen (the client-side twin of the server's column mapping). */
+const PROSPECT_FIELD_VALUES: Record<string, (p: Prospect) => string> = {
+  first_name: (p) => p.firstName,
+  last_name: (p) => p.lastName,
+  full_name: fullName,
+  job_title: (p) => p.title,
+  seniority: (p) => p.seniority,
+  department: (p) => p.department,
+  persona: (p) => p.jobFunction,
+  city: (p) => p.city,
+  country: (p) => p.country,
+  linkedin_url: (p) => p.linkedinUrl ?? "",
+  email: (p) => p.email ?? "",
+  email_status: (p) => (p.verifiedEmail ? "VALID" : ""),
+  phone: (p) => p.phone ?? "",
+  company: (p) => p.company.name,
+  website: (p) => p.company.website ?? "",
+  industry: (p) => p.company.industry,
+  employees: (p) => p.company.employees,
+  revenue: (p) => p.company.revenue,
+  headquarters: (p) => p.company.headquarters,
+  funding: (p) => p.company.funding,
+  contact_id: (p) => p.id,
+  company_id: (p) => p.company.id ?? "",
+  technologies: (p) => p.company.technologies.join("; "),
+  hiring: (p) => (p.company.hiring.length > 0 ? "Yes" : "No"),
+};
 
-  if (options.verifiedEmail) columns.push({ header: "Verified email", value: (p) => (p.verifiedEmail ? "Yes" : "No") });
-  if (options.directDial) columns.push({ header: "Direct dial", value: (p) => (p.directDial ? "Yes" : "No") });
-  if (options.missingContactDetails) columns.push({ header: "Job function", value: (p) => p.jobFunction });
-  if (options.companyFirmographics) {
-    columns.push(
-      { header: "Industry", value: (p) => p.company.industry },
-      { header: "Employees", value: (p) => p.company.employees },
-      { header: "Revenue", value: (p) => p.company.revenue },
-      { header: "Headquarters", value: (p) => p.company.headquarters },
-    );
-  }
-  if (options.technologies) columns.push({ header: "Technologies", value: (p) => p.company.technologies.join("; ") });
-  if (options.signals) {
-    columns.push(
-      { header: "Hiring", value: (p) => p.company.hiring.join("; ") },
-      { header: "Funding", value: (p) => p.company.funding },
-      { header: "Buying intent", value: (p) => p.company.intent },
-      { header: "Days in role", value: (p) => (p.jobChangeDays === null ? "365+" : p.jobChangeDays) },
-    );
-  }
-  columns.push({ header: "Sources", value: (p) => p.sources.join("; ") });
-  return columns;
-}
-
-export function buildCsv(prospects: readonly Prospect[], options: EnrichmentOptions): string {
-  const columns = buildCsvColumns(options);
-  const header = columns.map((column) => csvCell(column.header)).join(",");
-  const rows = prospects.map((prospect) => columns.map((column) => csvCell(column.value(prospect))).join(","));
+/** A CSV of exactly the chosen export fields, headed by their labels. */
+export function buildFieldCsv(prospects: readonly Prospect[], fieldKeys: readonly string[]): string {
+  const fields = resolveExportFields(fieldKeys);
+  const header = fields.map((field) => csvCell(field.label)).join(",");
+  const rows = prospects.map((prospect) => fields.map((field) => csvCell(PROSPECT_FIELD_VALUES[field.key]?.(prospect) ?? "")).join(","));
   return [header, ...rows].join("\r\n");
 }
 

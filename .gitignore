@@ -23,3 +23,11 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local data and runtime artifacts (never commit)
+*.db
+*.db-wal
+*.db-shm
+*.db.backup-*
+exports_storage/
+.env

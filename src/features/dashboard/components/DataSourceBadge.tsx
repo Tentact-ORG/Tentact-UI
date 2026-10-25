@@ -1,18 +1,13 @@
 "use client";
 
-import { useWorkspaceData } from "../WorkspaceDataContext";
 import styles from "../pages/Pages.module.css";
 
-/** States where the records on screen come from, so sample data is never mistaken for live data. */
+/** States where the records on screen come from. */
 export function DataSourceBadge() {
-  const { repository } = useWorkspaceData();
   return (
-    <span
-      className={styles.dataBadge}
-      title={repository.isSample ? "Illustrative records until this workspace is connected to its data source" : undefined}
-    >
+    <span className={styles.dataBadge} title="Searched live in the lead warehouse">
       <i aria-hidden="true" />
-      {repository.label}
+      Live workspace data
     </span>
   );
 }

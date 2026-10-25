@@ -1,32 +1,43 @@
 "use client";
 
+import { EXPORT_BUNDLES, EXPORT_FIELDS } from "@/lib/exportFields";
 import { useWorkspaceData } from "../WorkspaceDataContext";
-import { ENRICHMENT_FIELDS } from "./prospect.filters";
 import styles from "./Prospecting.module.css";
 
-/** The enrichment choices, shared by the search panel's Enrich tab and the Enrichment page. */
+/**
+ * The Enrich tab: what each exported contact includes, in bundles of export
+ * fields (the same choice as the export window's checklist).
+ */
 export function EnrichmentOptions() {
-  const { enrichment, setEnrichment } = useWorkspaceData();
-  const selectedCount = ENRICHMENT_FIELDS.filter((field) => enrichment[field.key]).length;
+  const { exportFields, setExportFields } = useWorkspaceData();
+  const chosen = new Set(exportFields);
+  const selectedCount = EXPORT_BUNDLES.filter((bundle) => bundle.fields.every((key) => chosen.has(key))).length;
+
+  const toggle = (fields: readonly string[], on: boolean) =>
+    setExportFields((current) => {
+      const next = new Set(current);
+      fields.forEach((key) => (on ? next.add(key) : next.delete(key)));
+      const ordered = EXPORT_FIELDS.filter((field) => next.has(field.key)).map((field) => field.key);
+      return ordered.length > 0 ? ordered : current;
+    });
 
   return (
     <div className={styles.enrichment}>
       <p className={styles.enrichmentIntro}>
-        Choose what every delivered record should carry. Exports include these fields, and the same choices apply when
-        enrichment runs on your connected data. <b>{selectedCount}</b> of {ENRICHMENT_FIELDS.length} selected.
+        Choose what each exported contact includes. These set the fields in the export window; email and phone cost credits.{" "}
+        <b>{selectedCount}</b> of {EXPORT_BUNDLES.length} selected.
       </p>
       <ul className={styles.enrichmentList}>
-        {ENRICHMENT_FIELDS.map((field) => (
-          <li key={field.key}>
+        {EXPORT_BUNDLES.map((bundle) => (
+          <li key={bundle.key}>
             <label className={styles.enrichmentOption}>
-              <input
-                type="checkbox"
-                checked={enrichment[field.key]}
-                onChange={(event) => setEnrichment((current) => ({ ...current, [field.key]: event.target.checked }))}
-              />
+              <input type="checkbox" checked={bundle.fields.every((key) => chosen.has(key))} onChange={(event) => toggle(bundle.fields, event.target.checked)} />
               <span>
-                <b>{field.label}</b>
-                <small>{field.description}</small>
+                <b>{bundle.label}</b>
+                <small>
+                  {bundle.description}
+                  {bundle.paid ? " Costs credits." : ""}
+                </small>
               </span>
             </label>
           </li>

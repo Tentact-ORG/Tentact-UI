@@ -7,9 +7,11 @@ import { BrandMark } from "@/components/brand/BrandMark";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { buildSalesMailto, ROUTES, SITE } from "@/config/site";
 import { cx } from "@/lib/cx";
+import { formatThousands } from "@/lib/math";
+import { useCreditSummary } from "../credits/useCredits";
 import type { WorkspaceSummary } from "../dashboard.types";
 import { DASHBOARD_PAGES } from "../navigation";
-import { BookIcon, CloseIcon, HelpIcon, HomeIcon, SearchIcon, SettingsIcon, UsersIcon } from "./icons";
+import { BookIcon, CloseIcon, HelpIcon, SearchIcon, SettingsIcon, UsersIcon } from "./icons";
 import styles from "../DashboardShell.module.css";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -33,6 +35,8 @@ interface NavGroup {
 interface SidebarProps {
   id: string;
   workspace: WorkspaceSummary;
+  /** Shows the admin console (users, schema, relationships, audit) for administrators and auditors. */
+  canAdmin: boolean;
   open: boolean;
   /** True when the sidebar is rendered as a drawer. */
   compact: boolean;
@@ -73,23 +77,25 @@ function NavLink({ item, active, onNavigate }: { item: NavItem; active: boolean;
   );
 }
 
-export function Sidebar({ id, workspace, open, compact, onClose, onSearch }: SidebarProps) {
+export function Sidebar({ id, workspace, canAdmin, open, compact, onClose, onSearch }: SidebarProps) {
   const pathname = usePathname();
+  const { summary: credits } = useCreditSummary();
 
   const groups: NavGroup[] = [
     {
       label: "Prospecting",
       items: [
-        { label: DASHBOARD_PAGES.overview.title, icon: HomeIcon, href: DASHBOARD_PAGES.overview.href },
         { label: DASHBOARD_PAGES.search.title, icon: SearchIcon, href: DASHBOARD_PAGES.search.href },
       ],
     },
     {
       label: "Workspace",
-      items: [
-        { label: "Team", icon: UsersIcon, soon: true },
-        { label: "Settings", icon: SettingsIcon, soon: true },
-      ],
+      items: canAdmin
+        ? [{ label: DASHBOARD_PAGES.admin.title, icon: SettingsIcon, href: DASHBOARD_PAGES.admin.href }]
+        : [
+            { label: "Team", icon: UsersIcon, soon: true },
+            { label: "Settings", icon: SettingsIcon, soon: true },
+          ],
     },
     {
       label: "Others",
@@ -115,7 +121,7 @@ export function Sidebar({ id, workspace, open, compact, onClose, onSearch }: Sid
       inert={compact && !open ? true : undefined}
     >
       <div className={styles.sidebarTop}>
-        <Link href={DASHBOARD_PAGES.overview.href} className={styles.workspace} onClick={onClose}>
+        <Link href={DASHBOARD_PAGES.search.href} className={styles.workspace} onClick={onClose}>
           <BrandMark size={36} className={styles.workspaceMark} />
           <div className={styles.workspaceText}>
             <b>{workspace.name}</b>
@@ -151,8 +157,17 @@ export function Sidebar({ id, workspace, open, compact, onClose, onSearch }: Sid
       </nav>
 
       <div className={styles.promo}>
-        <p className={styles.promoTitle}>Running low on credits?</p>
-        <p className={styles.promoBody}>Top up to keep exporting verified emails and direct dials.</p>
+        {credits?.enabled ? (
+          <>
+            <p className={styles.promoTitle}>{formatThousands(credits.balance)} credits left</p>
+            <p className={styles.promoBody}>Each new contact you reveal or export costs {credits.cost_per_contact}. Contacts you have paid for stay free.</p>
+          </>
+        ) : (
+          <>
+            <p className={styles.promoTitle}>Running low on credits?</p>
+            <p className={styles.promoBody}>Top up to keep exporting verified emails and direct dials.</p>
+          </>
+        )}
         <ButtonLink
           variant="ink"
           href={DASHBOARD_PAGES.credits.href}

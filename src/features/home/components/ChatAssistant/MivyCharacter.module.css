@@ -1,0 +1,178 @@
+/*
+ * Every layer covers the same 474×600 canvas, so joints and features are given
+ * as percentages of it (measured on the artwork).
+ */
+.root {
+  --look-x: 0;
+  --look-y: 0;
+  --lid: 0;
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+
+.layer,
+.bob,
+.body {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.layer {
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/*
+ * ---------- body: breathing, and a bob with each step ----------
+ * The bob sits on its own wrapper so a step never interrupts the breathing.
+ */
+.body {
+  transform-origin: 55% 96%;
+  animation: breathe 3.4s ease-in-out infinite;
+}
+
+.stepping .bob {
+  animation: bob 1s ease-in-out;
+}
+
+@keyframes breathe {
+  50% {
+    transform: scale(1.012, 0.99);
+  }
+}
+
+@keyframes bob {
+  0%,
+  50%,
+  100% {
+    transform: translateY(0);
+  }
+  25%,
+  75% {
+    transform: translateY(-0.9%) rotate(-0.6deg);
+  }
+}
+
+/* ---------- feet: alternating steps on the spot ---------- */
+.footLeft,
+.footRight {
+  transform-origin: 50% 95%;
+}
+
+.stepping .footLeft {
+  animation: step 1s ease-in-out;
+}
+
+.stepping .footRight {
+  animation: step 1s ease-in-out 0.5s;
+}
+
+@keyframes step {
+  0%,
+  50%,
+  100% {
+    transform: translateY(0);
+  }
+  20% {
+    transform: translateY(-1.6%) rotate(-6deg);
+  }
+  35% {
+    transform: translateY(-0.6%) rotate(-2deg);
+  }
+}
+
+/* ---------- eyes: moving pupils inside the whites, and blinking lids ---------- */
+.eye {
+  position: absolute;
+  top: 25.35%;
+  height: 2.6%;
+  overflow: hidden;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+}
+
+.eyeLeft {
+  left: 48.75%;
+  width: 7.8%;
+}
+
+.eyeRight {
+  left: 59.4%;
+  width: 7.8%;
+}
+
+.pupil {
+  position: absolute;
+  left: 26%;
+  top: 4%;
+  width: 48%;
+  height: 40%;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  background: #0b0b0c;
+  transform: translate(calc(var(--look-x) * 52%), calc(var(--look-y) * 70%));
+}
+
+.eyeRight .pupil {
+  left: 30%;
+}
+
+.lid {
+  position: absolute;
+  top: 25.1%;
+  height: 3.1%;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  background: linear-gradient(#ffa232, #f68a1c);
+  box-shadow: inset 0 -1px 0 rgba(176, 82, 0, 0.6);
+  transform: scaleY(var(--lid));
+  transform-origin: 50% 0;
+}
+
+.lidLeft {
+  left: 48.7%;
+  width: 7.9%;
+}
+
+.lidRight {
+  left: 59.3%;
+  width: 7.9%;
+}
+
+/*
+ * ---------- the wave ----------
+ * mivyGreeting.ts drives the greeting: it draws the arm, bending like a soft
+ * limb, on this canvas and sets the body's lean, lift and squash below.
+ */
+.arm {
+  position: absolute;
+  left: calc(-90 / 474 * 100%);
+  top: calc(-120 / 600 * 100%);
+  width: calc(420 / 474 * 100%);
+  height: 100%;
+  pointer-events: none;
+}
+
+.root {
+  --lean: 0;
+  --lift: 0;
+  --squash: 0;
+}
+
+.bob {
+  transform-origin: 55% 96%;
+}
+
+.waving .bob {
+  transform: translateY(calc(var(--lift) * 1%)) rotate(calc(var(--lean) * 1deg)) scale(calc(1 + var(--squash)), calc(1 - var(--squash)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body,
+  .stepping .bob,
+  .stepping .footLeft,
+  .stepping .footRight {
+    animation: none;
+  }
+}

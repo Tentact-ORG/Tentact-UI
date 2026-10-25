@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ROUTES, SITE } from "@/config/site";
 import { cx } from "@/lib/cx";
 import { MENU_LINKS } from "../../data/navigation";
+import { handleDemoLinkClick } from "../DemoBooking/DemoBooking";
 import styles from "./SiteHeader.module.css";
 
 function MenuIcon() {
@@ -80,6 +81,7 @@ export function SiteHeader() {
             href={SITE.demoUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={handleDemoLinkClick}
             withArrow
           >
             Book a demo
