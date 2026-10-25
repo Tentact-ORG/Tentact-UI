@@ -10,13 +10,29 @@ import styles from "./AdminConsole.module.css";
 
 type AdminTab = "metadata" | "relationships" | "columns" | "users" | "audit";
 
-const ADMIN_TABS: { key: AdminTab; label: string }[] = [
-  { key: "metadata", label: "📊 Schema Discovery & Health" },
-  { key: "relationships", label: "🔗 Relationship Approvals" },
-  { key: "columns", label: "🛡️ Column Policies & Permissions" },
-  { key: "users", label: "👥 Users & Roles" },
-  { key: "audit", label: "📜 Audit Logs & Metrics" },
+const ICON_PATHS: Record<AdminTab, string> = {
+  metadata: "M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Zm0 0v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6",
+  relationships: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1",
+  columns: "M12 3 5 6v5c0 4.4 3 8.3 7 10 4-1.7 7-5.6 7-10V6l-7-3Zm-3 9 2 2 4-4",
+  users: "M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM21 19v-1a4 4 0 0 0-3-3.9M16 3.1a3.5 3.5 0 0 1 0 6.8",
+  audit: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
+};
+
+const ADMIN_TABS: { key: AdminTab; label: string; hint: string }[] = [
+  { key: "metadata", label: "Schema health", hint: "Tables & discovery" },
+  { key: "relationships", label: "Relationships", hint: "Join approvals" },
+  { key: "columns", label: "Column policies", hint: "Sensitivity & access" },
+  { key: "users", label: "Users & roles", hint: "Team & credits" },
+  { key: "audit", label: "Audit log", hint: "Every action" },
 ];
+
+function TabIcon({ tab }: { tab: AdminTab }) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={ICON_PATHS[tab]} />
+    </svg>
+  );
+}
 
 interface AdminData {
   status: MetadataStatus;
@@ -69,11 +85,15 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
   const [showUserModal, setShowUserModal] = useState(false);
   // Credit operators can put a new user in a workspace of their own, with starting credits.
   const [isOperator, setIsOperator] = useState(false);
+  const [myId, setMyId] = useState<number | null>(null);
   const [ownWorkspace, setOwnWorkspace] = useState(true);
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceNameEdited, setWorkspaceNameEdited] = useState(false);
   const [startingCredits, setStartingCredits] = useState(String(DEFAULT_STARTING_CREDITS));
   const [userNotice, setUserNotice] = useState<string | null>(null);
+  const [userError, setUserError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -81,6 +101,12 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
       .creditStatus()
       .then((status) => {
         if (active) setIsOperator(status.is_operator);
+      })
+      .catch(() => {});
+    api
+      .me()
+      .then(({ user }) => {
+        if (active) setMyId(user.id);
       })
       .catch(() => {});
     return () => {
@@ -184,6 +210,23 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    setUserError(null);
+    try {
+      await api.deleteUser(confirmDelete.id);
+      setUserNotice(`Deleted ${confirmDelete.email}.`);
+      setConfirmDelete(null);
+      await loadData();
+    } catch (err: unknown) {
+      setUserError(errorText(err, "The user couldn't be deleted."));
+      setConfirmDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleToggleUserActive = async (user: User) => {
     try {
       await api.updateUser(user.id, { is_active: !user.is_active });
@@ -198,16 +241,18 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
       {/* Top Banner */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
         <div>
-          <h2 style={{ fontSize: "1.75rem", color: "var(--text-main)" }}>
-            Administrator Control Center
-          </h2>
-          <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "4px" }}>
-            Real-time schema reflection, candidate relationship approvals, column sensitivity policies, and audit metrics.
+          <p className={styles.eyebrow}>Workspace</p>
+          <h2 style={{ fontSize: "1.75rem", color: "var(--text-main)" }}>Admin console</h2>
+          <p style={{ fontSize: "0.9rem", color: "var(--text-muted)", marginTop: "4px" }}>
+            Your team, the warehouse the AI searches, what each column may be used for, and a record of every action.
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={handleTriggerRefresh} disabled={isRefreshing}>
-          {isRefreshing ? "Refreshing ClickHouse..." : "🔄 Trigger Discovery Refresh"}
+        <button className={`btn btn-outline ${styles.refresh}`} onClick={handleTriggerRefresh} disabled={isRefreshing}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={isRefreshing ? styles.spin : undefined}>
+            <path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" />
+          </svg>
+          {isRefreshing ? "Refreshing…" : "Refresh discovery"}
         </button>
       </div>
 
@@ -217,27 +262,40 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
         </div>
       )}
 
-      {/* Tabs Bar */}
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          borderBottom: "1px solid var(--border-subtle)",
-          paddingBottom: "12px",
-          marginBottom: "24px",
-          overflowX: "auto",
-        }}
-      >
-        {ADMIN_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`btn ${activeTab === tab.key ? "btn-primary" : "btn-outline"}`}
-            style={{ borderRadius: "var(--radius-md)" }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Tabs */}
+      <div className={styles.tabs} role="tablist" aria-label="Admin sections">
+        {ADMIN_TABS.map((tab) => {
+          const count =
+            tab.key === "relationships"
+              ? relationships.filter((r) => r.status === "PENDING").length
+              : tab.key === "columns"
+                ? columns.length
+                : tab.key === "users"
+                  ? users.length
+                  : 0;
+          const selected = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setActiveTab(tab.key)}
+              className={`${styles.tab} ${selected ? styles.tabActive : ""}`}
+            >
+              <span className={styles.tabIcon}>
+                <TabIcon tab={tab.key} />
+              </span>
+              <span className={styles.tabText}>
+                <b>
+                  {tab.label}
+                  {count > 0 && <span className={styles.tabCount}>{count.toLocaleString("en-US")}</span>}
+                </b>
+                <small>{tab.hint}</small>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* TAB 1: METADATA & SCHEMA HEALTH */}
@@ -438,22 +496,29 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
             <div>
-              <h3 style={{ fontSize: "1.1rem" }}>User Directory & Role-Based Access</h3>
+              <h3 style={{ fontSize: "1.1rem" }}>Users &amp; roles</h3>
               <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                Manage team members, roles (ADMIN, MEMBER, AUDITOR), and account status.
+                Add people, set what they can do, and switch accounts off or remove them.
+                {isOperator ? " As a credit operator you can also give a new customer their own workspace and starting credits." : ""}
               </p>
             </div>
             <button
               className="btn btn-primary"
+              style={{ flex: "none", whiteSpace: "nowrap" }}
               onClick={() => {
                 setUserNotice(null);
                 if (isOperator && ownWorkspace) setNewUserRole("ADMIN");
                 setShowUserModal(true);
               }}
             >
-              + Invite / Create User
+              + Add user
             </button>
           </div>
+          {userError && (
+            <p role="alert" style={{ margin: "0 0 12px", padding: "10px 12px", borderRadius: "10px", background: "rgba(244, 63, 94, 0.12)", color: "#a1251b", fontSize: "0.85rem" }}>
+              {userError}
+            </p>
+          )}
           {userNotice && (
             <p role="status" style={{ margin: "0 0 12px", padding: "10px 12px", borderRadius: "10px", background: "rgba(61, 220, 132, 0.12)", fontSize: "0.85rem" }}>
               {userNotice}
@@ -487,13 +552,24 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
                       </span>
                     </td>
                     <td>
-                      <button
-                        className="btn btn-outline"
-                        style={{ padding: "4px 10px", fontSize: "0.75rem" }}
-                        onClick={() => handleToggleUserActive(u)}
-                      >
-                        {u.is_active ? "Deactivate" : "Activate"}
-                      </button>
+                      <div className={styles.rowActions}>
+                        <button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: "0.75rem" }} onClick={() => handleToggleUserActive(u)}>
+                          {u.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                        {u.id !== myId && (
+                          <button
+                            className={`btn btn-outline ${styles.danger}`}
+                            style={{ padding: "4px 10px", fontSize: "0.75rem" }}
+                            onClick={() => {
+                              setUserError(null);
+                              setConfirmDelete(u);
+                            }}
+                            aria-label={`Delete ${u.email}`}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -501,11 +577,36 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
             </table>
           </div>
 
+          {confirmDelete && (
+            <div className="modal-overlay" onClick={() => !deleting && setConfirmDelete(null)}>
+              <div className="modal-content" role="alertdialog" aria-labelledby="delete-user-title" onClick={(e) => e.stopPropagation()}>
+                <h3 id="delete-user-title" style={{ marginBottom: "8px" }}>
+                  Delete {confirmDelete.full_name || confirmDelete.email}?
+                </h3>
+                <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  <b>{confirmDelete.email}</b> will no longer be able to sign in. Their saved searches, lists and export history are deleted too.
+                  The workspace keeps its credits, revealed contacts and audit history. This can&apos;t be undone; to keep their data, deactivate instead.
+                </p>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+                  <button type="button" className="btn btn-outline" onClick={() => setConfirmDelete(null)} disabled={deleting}>
+                    Cancel
+                  </button>
+                  <button type="button" className={`btn btn-primary ${styles.dangerSolid}`} onClick={() => void handleDeleteUser()} disabled={deleting}>
+                    {deleting ? "Deleting…" : "Delete user"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* User Create Modal */}
           {showUserModal && (
             <div className="modal-overlay" onClick={() => setShowUserModal(false)}>
               <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h3 style={{ marginBottom: "16px" }}>Create New User</h3>
+                <h3 style={{ marginBottom: "4px" }}>Add a user</h3>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
+                  They sign in with this email and the temporary password; ask them to change it.
+                </p>
                 <form onSubmit={handleCreateUser} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                   <div>
                     <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Full Name</label>
@@ -611,7 +712,7 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
                       Cancel
                     </button>
                     <button type="submit" className="btn btn-primary">
-                      Create User
+                      Add user
                     </button>
                   </div>
                 </form>
