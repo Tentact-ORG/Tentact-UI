@@ -183,6 +183,14 @@ export interface CreditRequestsTable {
   decided_by: string | null;
 }
 
+export interface LoginLockoutsTable {
+  /** Lower-cased email the attempts were made for (whether or not an account exists). */
+  email: string;
+  failures: number;
+  window_started_at: DbDate;
+  locked_until: DbDate | null;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   users: UsersTable;
@@ -198,6 +206,7 @@ export interface Database {
   credit_ledger: CreditLedgerTable;
   revealed_contacts: RevealedContactsTable;
   credit_requests: CreditRequestsTable;
+  login_lockouts: LoginLockoutsTable;
 }
 
 /** Tables in dependency order (parents first). */
@@ -216,6 +225,7 @@ export const TABLE_NAMES = [
   "credit_ledger",
   "revealed_contacts",
   "credit_requests",
+  "login_lockouts",
 ] as const satisfies readonly (keyof Database)[];
 
 export type DialectName = "sqlite" | "postgres";
@@ -592,6 +602,15 @@ export async function migrateDatabase(): Promise<void> {
     .addColumn("decided_by", "varchar(255)")
     .execute();
   await db.schema.createIndex("ix_credit_requests_status").ifNotExists().on("credit_requests").column("status").execute();
+
+  await db.schema
+    .createTable("login_lockouts")
+    .ifNotExists()
+    .addColumn("email", "varchar(255)", (c) => c.primaryKey())
+    .addColumn("failures", "integer", (c) => c.notNull())
+    .addColumn("window_started_at", ts, (c) => c.notNull())
+    .addColumn("locked_until", ts)
+    .execute();
 
   // Columns added after the original schema; databases created by the Python service gain them here.
   await addColumnIfMissing("saved_searches", "ui_state", json);

@@ -1,4 +1,5 @@
 import { json, parseBody, route } from "@/server/api/handler";
+import { signInRateLimit } from "@/server/auth/credentials";
 import { HttpError } from "@/server/core/errors";
 import { createAccessToken } from "@/server/core/security";
 import { bootstrapRequestSchema, toUserResponse, type TokenResponse } from "@/server/schemas/auth";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 
 /** One-time creation of the primary organization and first administrator. */
 export const POST = route(async (request) => {
+  const wait = signInRateLimit(request.headers);
+  if (wait > 0) throw new HttpError(429, "Too many requests. Try again later.", { "Retry-After": String(wait) });
   const body = await parseBody(request, bootstrapRequestSchema);
   try {
     const { user } = await adminBootstrapService.bootstrapInitialAdmin({

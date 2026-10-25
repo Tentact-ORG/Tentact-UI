@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { PATCH as updateUser } from "@/app/api/admin/users/[userId]/route";
 import { GET as me } from "@/app/api/auth/me/route";
 import { GET as listSaved, POST as saveSearch } from "@/app/api/search/saved/route";
-import { verifyCredentials } from "@/server/auth/credentials";
+import { POST as apiLogin } from "@/app/api/auth/login/route";
+import { authenticate, type CredentialInput } from "@/server/auth/credentials";
+import { LOCKOUT_MS, lockedUntil, MAX_FAILURES, signInLimiter } from "@/server/auth/loginThrottle";
 import { decodeSessionToken, encodeSessionToken, readCookie, SESSION_COOKIE } from "@/server/auth/token";
-import { getDb } from "@/server/core/database";
+import { getCodec, getDb } from "@/server/core/database";
 import { authHeaders, callRoute, seedTestData, type SeedData } from "./helpers";
 
 const SECRET = process.env.TENTACT_AUTH_SECRET!;
@@ -68,9 +70,17 @@ describe("dashboard session cookies on the API", () => {
   });
 });
 
+const NO_PROXY = new Headers();
+const verifyCredentials = async (input: CredentialInput) => {
+  const result = await authenticate(input, NO_PROXY);
+  return result.ok ? result.account : null;
+};
+const MEMBER = { email: "member@acme.com", password: "member_secure_password_123" };
+
 describe("credential verification for the sign-in form", () => {
   beforeEach(async () => {
     await seedTestData();
+    signInLimiter.reset();
   });
 
   it("accepts valid credentials case-insensitively and audits the outcome", async () => {
@@ -86,6 +96,43 @@ describe("credential verification for the sign-in form", () => {
   it("refuses deactivated accounts even with the right password", async () => {
     await getDb().updateTable("users").set({ is_active: 0 }).where("email", "=", "member@acme.com").execute();
     expect(await verifyCredentials({ email: "member@acme.com", password: "member_secure_password_123" })).toBeNull();
+  });
+
+  it("locks an email after repeated failures, even with the right password, and audits it", async () => {
+    for (let i = 0; i < MAX_FAILURES; i += 1) {
+      expect(await authenticate({ ...MEMBER, password: "wrong" }, NO_PROXY)).toEqual({ ok: false, reason: "invalid" });
+    }
+    const locked = await authenticate(MEMBER, NO_PROXY);
+    expect(locked).toMatchObject({ ok: false, reason: "locked" });
+    expect(locked.ok === false && "retryAfterSec" in locked && locked.retryAfterSec).toBeGreaterThan(LOCKOUT_MS / 1000 - 5);
+
+    // Other accounts are unaffected; unknown emails lock the same way (no account enumeration).
+    expect((await authenticate({ email: "admin@acme.com", password: "admin_secure_password_123" }, NO_PROXY)).ok).toBe(true);
+    for (let i = 0; i < MAX_FAILURES; i += 1) await authenticate({ email: "ghost@acme.com", password: "x" }, NO_PROXY);
+    expect(await lockedUntil("ghost@acme.com")).not.toBeNull();
+
+    const actions = (await getDb().selectFrom("audit_events").select("action").execute()).map((a) => a.action);
+    expect(actions).toContain("LOGIN_LOCKED");
+  });
+
+  it("unlocks after the lockout and resets the count on success", async () => {
+    for (let i = 0; i < MAX_FAILURES; i += 1) await authenticate({ ...MEMBER, password: "wrong" }, NO_PROXY);
+    await getDb().updateTable("login_lockouts").set({ locked_until: getCodec().date(new Date(Date.now() - 1000)) }).execute();
+    expect((await authenticate(MEMBER, NO_PROXY)).ok).toBe(true);
+    expect(await getDb().selectFrom("login_lockouts").selectAll().where("email", "=", MEMBER.email).execute()).toHaveLength(0);
+  });
+
+  it("rate-limits sign-in requests per client address and answers API clients with 429", async () => {
+    const fromClient = { "X-Forwarded-For": "203.0.113.7, 10.0.0.1" };
+    let last = await callRoute(apiLogin, { method: "POST", headers: fromClient, body: { email: "a@b.co", password: "x" } });
+    for (let i = 0; i < 40 && last.status !== 429; i += 1) {
+      last = await callRoute(apiLogin, { method: "POST", headers: fromClient, body: { email: `user${i}@b.co`, password: "x" } });
+    }
+    expect(last.status).toBe(429);
+    expect(Number(last.response.headers.get("retry-after"))).toBeGreaterThan(0);
+    // A different client is still served.
+    const other = await callRoute(apiLogin, { method: "POST", headers: { "X-Forwarded-For": "198.51.100.2" }, body: MEMBER });
+    expect(other.status).toBe(200);
   });
 });
 
