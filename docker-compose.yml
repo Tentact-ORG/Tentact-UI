@@ -50,8 +50,10 @@ services:
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=
       - CLICKHOUSE_DATABASE=leadgen_warehouse
-      # Replace with a unique random value of at least 32 characters.
+      # Replace both with unique random values of at least 32 characters.
+      - TENTACT_AUTH_SECRET=replace_with_a_unique_session_secret_of_32_plus_chars
       - JWT_SECRET_KEY=leadgen_super_secret_jwt_key_change_in_production_min32chars
+      - NEXT_PUBLIC_SITE_URL=http://localhost:3000
       - LLM_PROVIDER=mock
       - EXPORT_STORAGE_PATH=/app/exports_storage
     volumes:

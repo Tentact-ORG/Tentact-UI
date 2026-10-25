@@ -10,26 +10,43 @@ The LeadGen AI Platform features a **provider-independent LLM architecture** (`s
    - Deterministic and local; no API keys, no network.
    - Models both Agent 1 (SQL Generator) and Agent 2 (SQL Reviewer) for the synthetic schema.
 
-2. **`groq`**
+2. **`azure`** (Azure OpenAI / Azure AI Foundry)
+   - Official `openai` SDK against the resource's v1 endpoint (`https://<resource>.services.ai.azure.com/openai/v1`), addressed by **deployment name**. No `api-version` is needed with the v1 endpoint.
+   - Reasoning deployments (gpt-5 family, o-series) reject `temperature` and `max_tokens`: the adapter sends `max_completion_tokens`, an optional `reasoning_effort`, and a temperature only when `AZURE_OPENAI_TEMPERATURE` is set.
+   - A model listed in the resource's catalog (`GET /models`) is not necessarily deployed. `npm run verify-azure` sends one minimal request to the configured deployment and reports the served model, JSON-mode support and remaining rate-limit quota.
+   - Tested configuration: deployment `gpt-5-mini`, `AZURE_OPENAI_REASONING_EFFORT=medium` for the generator and `AZURE_OPENAI_REVIEWER_REASONING_EFFORT=low` for the reviewer (about 15–20 s and 6–8 s per call). A `model-router` deployment also works, but it may pick a different model for each call.
+
+3. **`groq`**
    - OpenAI-compatible chat completions with JSON mode.
    - Default model when `LLM_MODEL` is left unset: `openai/gpt-oss-120b`.
    - Rate limits (HTTP 429) are retried up to 5 times, honouring `retry-after`.
 
-3. **`openai`** (or any OpenAI-compatible endpoint via `OPENAI_BASE_URL`)
+4. **`openai`** (or any OpenAI-compatible endpoint via `OPENAI_BASE_URL`)
    - Uses JSON mode (`response_format: { type: "json_object" }`). Default model: `gpt-4o-mini`.
 
-4. **`anthropic`**
+5. **`anthropic`**
    - Uses the official `@anthropic-ai/sdk`. Default model: `claude-opus-5-5`.
    - Sampling parameters are not sent (`LLM_TEMPERATURE` does not apply); responses may include thinking blocks, and only the text content is used.
    - For models that support it, server-side refusal fallback (`fallbacks: "default"`) is enabled so a declined request is retried on Anthropic's recommended fallback model; a refusal that still stands is reported as an error.
 
-5. **`gemini`**
+6. **`gemini`**
    - Uses structured generation (`responseMimeType: "application/json"`). Default model: `gemini-1.5-pro`; set `LLM_MODEL` to a currently available Gemini model.
    - The API key is sent in the `x-goog-api-key` header, never in the URL.
 
 ---
 
 ## 2. Configuration Examples
+
+### Azure OpenAI
+```bash
+LLM_PROVIDER=azure
+LLM_TIMEOUT_SEC=60
+AZURE_OPENAI_ENDPOINT=https://<resource>.services.ai.azure.com/openai/v1
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_DEPLOYMENT=gpt-5-mini
+AZURE_OPENAI_REASONING_EFFORT=medium
+AZURE_OPENAI_REVIEWER_REASONING_EFFORT=low
+```
 
 ### Groq
 ```bash
@@ -64,5 +81,5 @@ GEMINI_API_KEY=AIza...
 ## 3. Privacy & Minimal Data Exposure
 
 - **No raw lead rows or personal contact data** are ever sent to LLMs.
-- Prompts contain only discovered table and column names, column types, approved relationships, and a bounded sample of verified categorical values (e.g. industry names).
+- Prompts contain only discovered table and column names, column types and sensitivity tiers, approved relationships, the value lists of small categorical columns in approved tables (job levels, functions, employee bands…; restricted columns are never included), the names of columns that hold no data, and the deterministic access-control verdict for the query under review.
 - API keys stay on the server; browsers never call LLM endpoints. Provider error responses are logged server-side and surfaced to clients only as a generic status message.

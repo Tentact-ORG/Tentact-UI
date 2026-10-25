@@ -32,13 +32,9 @@ npm run bootstrap-admin -- \
 
 If you omit the `--password` flag, the CLI securely prompts with hidden password input and confirmation.
 
-### Method B: Web UI Setup Wizard
+### Method B: API
 
-1. Start both the backend and frontend servers.
-2. Navigate to `http://localhost:3000`.
-3. If no administrator account exists, the interface displays the **Bootstrap Initial Administrator** wizard.
-4. Fill in the administrator full name, email, password, and primary organization name.
-5. Upon successful creation, the wizard permanently closes, and subsequent bootstrap attempts return `403 Forbidden ("Application is already bootstrapped")`.
+`POST /api/auth/bootstrap` with `admin_email`, `admin_password` (8+ characters), `admin_name`, `org_name` and `org_slug` creates the administrator once; afterwards it returns `403 Forbidden ("Application is already bootstrapped")`. Until an administrator exists, the sign-in page says that sign-in isn't set up yet.
 
 ---
 
@@ -47,8 +43,11 @@ If you omit the `--password` flag, the CLI securely prompts with hidden password
 ### Argon2id Password Hashing
 All local passwords are automatically hashed with **Argon2id** (`@node-rs/argon2`, using the same parameters as the original Python `argon2-cffi` service, so existing hashes remain valid). Argon2id is the winner of the Password Hashing Competition and provides state-of-the-art resistance against GPU/ASIC cracking and side-channel attacks.
 
-### Signed JWT Tokens
-Upon authentication, the API issues a signed JSON Web Token (JWT) with:
+### Dashboard Sessions
+Signing in at `/login` sets an HttpOnly, SameSite=Lax session cookie signed with `TENTACT_AUTH_SECRET`. It names only the user; the account, role and organization are re-read on every request, so deactivation and role changes apply immediately. API routes accept this cookie and reject cookie-authenticated writes from other origins.
+
+### Signed JWT Tokens (API clients)
+`POST /api/auth/login` issues a signed JSON Web Token for use as `Authorization: Bearer`, with:
 - `sub`: Internal User ID
 - `org_id`: Tenant Organization ID (used to enforce tenant boundaries)
 - `role`: User Role (`ADMIN`, `MEMBER`, or `AUDITOR`)

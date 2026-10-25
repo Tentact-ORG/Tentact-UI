@@ -54,3 +54,21 @@ In the Admin Console (**Relationship Approvals** tab):
 - Click **Approve** to authorize the join for production SQL generation.
 - Click **Reject** or **Disable** to block the join.
 - If an unapproved join is attempted by the generator, the Reviewer Agent and the Deterministic AST Validator reject the query before execution.
+
+---
+
+## The `growstack` Warehouse
+
+When `CLICKHOUSE_DATABASE=growstack`, only these tables are approved by discovery; every other table stays unapproved until an administrator approves its columns:
+
+| Table | Role | Notes |
+| :--- | :--- | :--- |
+| `new_combined_data` | Contacts (people with their company attributes) | ~375M rows, sorted by `COUNTRY_CODE_PER, EMPLOYEE_COUNT_RANGE_ORG, JOB_FUNCTION_PER, JOB_LEVEL_PER, RBID_PER`. Identifier `RBID_PER`. |
+| `new_company_data` (and `new_company_data_10_26`) | Companies | Identifier `RBID_ORG`. |
+| `company_data` | Company enrichment | `id` equals `RBID_ORG`. Used only inside `RBID_ORG IN (SELECT id FROM company_data WHERE …)` subqueries, never joined. `industry` (78% populated) is the most complete industry source. |
+
+Value discovery records columns that hold no data at all. At the time of integration `company_data.technology`, `company_data.job_openings` and `company_data.last_funding_round` were empty across all 65.6M rows. The SQL generator is given that list and never filters on such columns, and the dashboard hides filters built on them, so both pick these columns up automatically once they are loaded.
+
+### Sensitivity heuristic
+
+Columns are classified on first discovery by name. `arr` (annual recurring revenue) only counts as a whole name token, so `confidential_arr` is RESTRICTED but `COMBINED_TECH_ARRAY_ORG` is public; values stored by earlier releases, which matched `arr` anywhere in the name, are corrected on the next discovery run. Administrators can change any column's tier in the admin console.

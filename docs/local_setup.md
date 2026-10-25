@@ -1,6 +1,6 @@
 # Local Development Setup Guide
 
-The LeadGen AI Platform is a single Next.js application: the workspace UI and the REST API (`/api/*`) are served by the same Node.js process.
+The Tentact is a single Next.js application: the landing page, the dashboard and the workspace API (`/api/*`) are served by the same Node.js process.
 
 ---
 
@@ -18,7 +18,7 @@ The LeadGen AI Platform is a single Next.js application: the workspace UI and th
 
 ```bash
 npm install
-cp .env.example .env   # then edit as needed
+cp .env.example .env   # then set TENTACT_AUTH_SECRET and JWT_SECRET_KEY (openssl rand -base64 48)
 ```
 
 For a fully offline setup, set `CLICKHOUSE_MODE=mock` and `LLM_PROVIDER=mock` in `.env` and skip to Step 4.
@@ -59,7 +59,7 @@ npm run bootstrap-admin -- \
   --org-slug "enterprise-growth"
 ```
 
-The password is prompted for (hidden) when `--password` is omitted. Alternatively, open the UI with no administrator present and use the bootstrap wizard.
+The password is prompted for (hidden) when `--password` is omitted. Sign in at `/login`; further users are added from the admin console (`/home/admin`).
 
 ### Step 5: Start the application
 
@@ -67,7 +67,7 @@ The password is prompted for (hidden) when `--password` is omitted. Alternativel
 npm run dev
 ```
 
-- Workspace UI: http://localhost:3000
+- Landing page: http://localhost:3000 · sign-in: http://localhost:3000/login
 - Health & readiness: http://localhost:3000/api/health/ready
 
 For a production run: `npm run build && npm start`.
@@ -86,7 +86,7 @@ Services:
 - **ClickHouse HTTP**: http://localhost:8123
 - **PostgreSQL**: localhost:5432
 
-Before exposing the stack, replace `JWT_SECRET_KEY` in `docker-compose.yml` with a unique random value. Seed ClickHouse from the host with `npm run seed-clickhouse` and bootstrap the administrator through the UI wizard.
+Before exposing the stack, replace `TENTACT_AUTH_SECRET` and `JWT_SECRET_KEY` in `docker-compose.yml` with unique random values. Seed ClickHouse from the host with `npm run seed-clickhouse`, and create the first administrator by running `npm run bootstrap-admin` on the host with `DATABASE_URL` pointing at the compose PostgreSQL (`postgresql://postgres:postgres_secure_pass@localhost:5432/leadgen_app`).
 
 ---
 

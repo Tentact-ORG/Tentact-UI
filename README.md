@@ -1,9 +1,14 @@
 # The Tentact — Next.js
 
-The Tentact marketing site (landing page and Terms & Conditions) together with the workspace sign-in
-and prospecting dashboard, built with Next.js (App Router, TypeScript). The landing page was ported
-section by section from an earlier static HTML version, keeping the same visuals, copy and motion;
-the static original is not part of this repository.
+The Tentact marketing site (landing page and Terms & Conditions) together with the workspace sign-in,
+the prospecting dashboard and the workspace API behind it, built with Next.js (App Router, TypeScript).
+The landing page was ported section by section from an earlier static HTML version, keeping the same
+visuals, copy and motion; the static original is not part of this repository.
+
+The dashboard searches a ClickHouse lead warehouse through an AI search pipeline: an LLM SQL generator,
+an independent LLM reviewer and a deterministic SQL validator, then read-only execution (see
+[docs/architecture.md](docs/architecture.md)). Accounts, saved searches, lists, exports and the audit
+log live in an application database (SQLite or PostgreSQL).
 
 ## Scripts
 
@@ -14,7 +19,11 @@ the static original is not part of this repository.
 | `npm start`                      | Serve the production build                            |
 | `npm run lint`                   | ESLint (Next core-web-vitals + TypeScript)            |
 | `npm run typecheck`              | `tsc --noEmit`                                        |
-| `node scripts/hash-password.mjs` | Print a password hash for `TENTACT_AUTH_ACCOUNTS`     |
+| `npm test`                       | Unit and API integration tests (Vitest, offline)      |
+| `npm run bootstrap-admin`        | Create the first organization and administrator       |
+| `npm run verify-azure`           | Check the Azure OpenAI endpoint, key, deployment and quota |
+| `npm run seed-clickhouse`        | Load the synthetic dataset into a local ClickHouse    |
+| `npm run generate-data`          | Regenerate `database/synthetic_seed_data.json`        |
 
 `dev` and `build` use webpack (`--webpack`) on purpose. Turbopack ignores `adjustFontFallback: false`
 in `next/font` and always inserts an Arial fallback face. That changes how glyphs Geist doesn't have
@@ -22,13 +31,20 @@ in `next/font` and always inserts an Arial fallback face. That changes how glyph
 
 ## Configuration
 
-Copy `.env.example` to `.env.local` and fill it in. Environment changes need a dev-server restart.
+Copy `.env.example` to `.env` and fill it in; environment changes need a server restart. The full
+reference is [docs/environment_variables.md](docs/environment_variables.md). The essentials:
 
-| Variable                 | Purpose                                                                                                         |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SITE_URL`   | Absolute origin of the deployed site: canonical URLs, Open Graph tags, `sitemap.xml`, `robots.txt`, JSON-LD.   |
-| `TENTACT_AUTH_SECRET`    | Signs session cookies. At least 32 random characters (`openssl rand -hex 32`). Rotating it signs everyone out.   |
-| `TENTACT_AUTH_ACCOUNTS`  | Accounts allowed to sign in: `email:passwordHash[:Workspace name]` entries separated by `;`. Without a name, one is derived from the email domain. |
+| Variable                                   | Purpose                                                                                     |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SITE_URL`                     | Absolute origin of the deployed site: canonical URLs, Open Graph tags, sitemap, robots, JSON-LD. |
+| `TENTACT_AUTH_SECRET`                      | Signs dashboard session cookies (32+ random characters). Rotating it signs everyone out.    |
+| `JWT_SECRET_KEY`                           | Signs Bearer tokens for API clients (32+ random characters).                                |
+| `DATABASE_URL`                             | Application database: `sqlite:///./leadgen_app.db` or a `postgresql://` URL.                |
+| `CLICKHOUSE_*`                             | The lead warehouse connection (`CLICKHOUSE_MODE=mock` runs on the bundled synthetic data).  |
+| `LLM_PROVIDER` and `AZURE_OPENAI_*`        | The model behind the SQL agents; see [docs/llm_configuration.md](docs/llm_configuration.md). |
+
+First run: create the first administrator with `npm run bootstrap-admin`, then sign in at `/login`.
+Administrators add further users in the admin console.
 
 ## Routes
 
@@ -40,10 +56,12 @@ Copy `.env.example` to `.env.local` and fill it in. Environment changes need a d
 | `/home`                                           | dynamic   | Dashboard home: stats, search bar and filter panel, saved searches, enrichment. |
 | `/home/search`                                    | dynamic   | Prospect search with the full, selectable results table.                        |
 | `/home/lists`                                     | dynamic   | Prospect lists, opened from the Lists button in the top bar.                    |
+| `/home/admin`                                     | dynamic   | Admin console (administrators and auditors): schema health, join approvals, column policies, users, audit log. |
+| `/api/*`                                          | dynamic   | The workspace API (route handlers in `src/app/api`); see [docs/architecture.md](docs/architecture.md). |
 | `/credits`                                        | dynamic   | Buy credits: packs or a custom amount; Top up sends a pre-filled request to sales. |
 | `/sitemap.xml`, `/robots.txt`, `/opengraph-image` | static    | Generated from `src/app/sitemap.ts`, `robots.ts` and `opengraph-image.tsx`.     |
 
-Every `/home` route and `/credits` requires a session and otherwise redirects to `/login`; they share the `src/app/(dashboard)` layout. Credit pack sizes and prices in `features/dashboard/credits/credits.data.ts` are placeholders to confirm with sales before launch, and there is no payment backend yet. Search filters live in the
+Every `/home` route and `/credits` requires a session and otherwise redirects to `/login`; they share the `src/app/(dashboard)` layout. Credit pack sizes and prices in `features/dashboard/credits/credits.data.ts` are placeholders to confirm with sales before launch, and there is no payment or credit-metering backend yet. Search filters live in the
 dashboard layout, so they carry over when moving between dashboard pages.
 
 ## Structure
@@ -54,21 +72,31 @@ src/
 │   ├── page.tsx              → features/home/HomePage (+ JSON-LD)
 │   ├── terms/page.tsx        → features/terms/TermsPage (+ breadcrumb JSON-LD)
 │   ├── login/page.tsx        → features/auth/LoginPage
-│   └── (dashboard)/          layout.tsx guards the session; home/, home/search, home/lists, credits/
+│   ├── (dashboard)/          layout.tsx guards the session; home/, home/search, home/lists, home/admin, credits/
+│   └── api/                  Workspace API route handlers (auth, search, lists, export, admin, health)
 ├── config/                   site.ts (brand copy, contact, demo URL, routes), seo.ts (site origin)
 ├── components/               Shared UI: Button, ButtonLink, TextField, Reveal, FitFrame, BrandMark, seo/JsonLd
 ├── hooks/                    React hooks (scroll reveal, fit-to-viewport, tilt, media query, localStorage store…)
 ├── lib/                      Framework-free helpers: math, motion presets, observers, workspace names,
 │                             seo/structured-data builders
 ├── providers/                SmoothScrollProvider (Lenis), MotionGate
-├── server/auth/              Server-only: env config, PBKDF2 passwords, credential check, signed sessions
+├── server/                   Server-only code
+│   ├── auth/                 Sign-in against the users table, signed session cookies
+│   ├── core/                 Config validation, database (Kysely: SQLite/PostgreSQL) and migrations, Argon2id + JWT
+│   ├── models/, schemas/     Entities and row mappers; zod request schemas
+│   ├── services/             Schema/value discovery, SQL generator and reviewer agents, LLM providers,
+│   │                         SQL analyzer and validator, query executor, exports, audit
+│   ├── api/                  Request authentication (cookie or Bearer), roles, route wrapper
+│   └── bootstrap.ts          Startup: migrations, ClickHouse discovery, background workers
 └── features/
     ├── home/                 Landing page sections (see below)
     ├── terms/                Terms page, its content (terms.data.tsx) and small client widgets
     ├── auth/                 Sign-in page, form, Server Actions (login/logout), validation
+    ├── admin/                Admin console and its API client
     └── dashboard/            Shell (sidebar, topbar), shared workspace context, pages/ (one per route),
-        └── prospecting/      Prospect model, filter registry, matching, sample repository,
-                              search panel, results table, saved searches, lists, CSV export
+        ├── api/              Typed client for the workspace API
+        └── prospecting/      Prospect model, filter registry, filter → search request and row → prospect
+                              mapping, search panel, results table, saved searches, lists, CSV export
 ```
 
 ### Anatomy of a landing-page section
@@ -93,24 +121,34 @@ downloads d3 or the atlas.
 
 ## Sign-in and sessions
 
-- **Credentials** come from `TENTACT_AUTH_ACCOUNTS` and are verified in `src/server/auth/credentials.ts`
-  with PBKDF2-HMAC-SHA256 (600k iterations) and constant-time comparison. An unknown email costs the
-  same as a wrong password, and the form never says which part failed. This module is the single
-  place to swap in a real identity provider or user store.
-- **Sessions** are stateless HMAC-SHA256 tokens in an HttpOnly, SameSite=Lax cookie, valid for 12 hours
-  or 30 days with "Remember me". The cookie is `Secure` whenever the request arrived over HTTPS (read
-  from `x-forwarded-proto`), not merely in production builds: a Secure cookie on plain-HTTP localhost is
-  dropped by Safari and would sign you out on the next click. `requireSession()` guards every `/home` page.
-- **Not included** (do these at the edge or in the identity provider): rate limiting and lockout,
+- **Accounts** live in the application database (`users`, grouped into organizations, the dashboard's
+  workspaces). Passwords are Argon2id hashes; `src/server/auth/credentials.ts` verifies them with
+  constant-time cost, so an unknown email takes as long as a wrong password, and the form never says
+  which part failed. Every attempt is written to the audit log. Deactivated accounts cannot sign in.
+- **Sessions** are HMAC-SHA256 tokens in an HttpOnly, SameSite=Lax cookie, valid for 12 hours or 30 days
+  with "Remember me". The token names only the user; the user, role and workspace are loaded on every
+  request, so deactivating an account or changing a role takes effect immediately. The cookie is
+  `Secure` whenever the request arrived over HTTPS (read from `x-forwarded-proto`), not merely in
+  production builds: a Secure cookie on plain-HTTP localhost is dropped by Safari.
+- **The API** accepts the session cookie (the dashboard) or an `Authorization: Bearer` token from
+  `/api/auth/login` (API clients). Cookie-authenticated writes must come from the same origin.
+- **Roles**: `MEMBER` searches, saves and exports; `AUDITOR` can also read the admin console;
+  `ADMIN` manages users, column policies and table relationships and sees the SQL behind each search.
+- **Not included** (do these at the edge or in an identity provider): rate limiting and lockout,
   password reset (the "Forgot password?" link emails sales), multi-factor authentication.
 
 ## Dashboard
 
-The dashboard reads prospects through `ProspectRepository`. The only implementation is the sample
-repository, and the page says so ("Sample workspace data"); connecting a workspace's real data means
-implementing that interface. Saved searches, lists and enrichment preferences are kept per workspace
-in the browser (`localStorage`) through `WorkspaceDataProvider`, in shapes that serialise directly to
-a backend. CSV exports are generated client-side and follow the enrichment options.
+The search bar and filters describe who to find; pressing Enter (or Done in the filter panel) runs an
+AI search over the lead warehouse. Each filter maps to a warehouse column
+(`prospecting/prospect.query.ts`) and is sent as an explicit structured filter; free text is applied by
+the SQL generator. Filter options are the values discovered in those columns, and filters whose column
+holds no data or isn't visible to the user's role are hidden. Results load a hundred at a time.
+
+Saved searches and lists are stored per organization on the server. "Export CSV" generates the full
+result set as a server-side export job; exports of a selection or a list are built in the browser.
+Both follow the enrichment options (kept per account in the browser) and neutralise spreadsheet
+formula injection.
 
 ## Security and source exposure
 
