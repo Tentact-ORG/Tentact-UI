@@ -7,7 +7,7 @@ import { BuildingIcon, FilterIcon, SearchIcon, SparkleIcon, UserIcon } from "../
 import { useWorkspaceData } from "../WorkspaceDataContext";
 import { EnrichmentOptions } from "./EnrichmentOptions";
 import { FilterGroup } from "./FilterGroup";
-import { activeFilterChips, applyInterpretation, toInterpretFields, type FilterTab } from "./prospect.filters";
+import { activeFilterChips, applyInterpretation, explainInterpretation, toInterpretFields, type FilterTab, type UnderstoodPhrase } from "./prospect.filters";
 import type { MultiFilterKey, ProspectFilters } from "./prospect.types";
 import { consumeSearchFocusRequest, PROSPECT_SEARCH_INPUT_ID } from "./search-focus";
 import styles from "./Prospecting.module.css";
@@ -16,7 +16,7 @@ import styles from "./Prospecting.module.css";
 type Interpretation =
   | { status: "idle" }
   | { status: "loading"; text: string }
-  | { status: "ready"; text: string; previous: ProspectFilters; remaining: string }
+  | { status: "ready"; text: string; previous: ProspectFilters; remaining: string; understood: UnderstoodPhrase[] }
   | { status: "error"; text: string; previous: ProspectFilters; message: string };
 
 function SuggestionChips({ items, onAdd }: { items: { key: MultiFilterKey; value: string; label: string }[]; onAdd: (key: MultiFilterKey, value: string) => void }) {
@@ -115,7 +115,7 @@ export function ProspectSearch() {
           return field && field.kind === "multi" ? [{ key: field.key, value: item.value, label: field.label }] : [];
         }),
       );
-      setInterpretation({ status: "ready", text, previous, remaining: result.remaining_query });
+      setInterpretation({ status: "ready", text, previous, remaining: result.remaining_query, understood: explainInterpretation(text, result, fields) });
     } catch (error) {
       setInterpretation({ status: "error", text, previous, message: errorText(error, "The request couldn't be turned into filters.") });
     }
@@ -271,6 +271,33 @@ export function ProspectSearch() {
                   Apply filters
                 </button>
               </div>
+              {(interpretation.understood.length > 0 || interpretation.remaining) && (
+                <div className={styles.understood}>
+                  <p className={styles.understoodTitle}>What we understood</p>
+                  <dl>
+                    {interpretation.understood.map((row) => (
+                      <div key={row.phrase ?? "-"} className={styles.understoodRow}>
+                        <dt>{row.phrase ? `“${row.phrase}”` : "From your request"}</dt>
+                        <dd>
+                          {row.items.map((item) => (
+                            <span key={item.label} className={styles.understoodItem}>
+                              <b>{item.label}:</b> {item.values.join(", ")}
+                            </span>
+                          ))}
+                        </dd>
+                      </div>
+                    ))}
+                    {interpretation.remaining && (
+                      <div className={styles.understoodRow}>
+                        <dt>“{interpretation.remaining}”</dt>
+                        <dd>
+                          <span className={styles.understoodItem}>No matching filter: searched as text</span>
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+              )}
               <SuggestionChips items={openSuggestions} onAdd={toggleOption} />
             </>
           )}

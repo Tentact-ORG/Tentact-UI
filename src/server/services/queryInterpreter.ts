@@ -40,6 +40,8 @@ export interface InterpretResult {
   filters: Record<string, string[]>;
   /** Criteria no field expresses, kept as the free-text query (empty when everything became a filter). */
   remaining_query: string;
+  /** For each field in `filters`, the words of the request it was taken from (shown to the user). */
+  evidence: Record<string, string>;
   /** Related filter values the user may also want (never ones already in `filters`); options of multi fields only. */
   suggestions: { key: string; value: string }[];
 }
@@ -50,12 +52,13 @@ const modelOutputSchema = z.object({
   filters: z.record(z.string(), z.union([z.array(z.union([z.string(), z.number(), z.boolean()])), z.string(), z.boolean()])).default({}),
   remaining_query: z.string().nullable().default(""),
   suggestions: z.array(z.object({ key: z.string(), value: z.union([z.string(), z.number()]) })).default([]),
+  evidence: z.record(z.string(), z.string()).default({}),
 });
 
 const SYSTEM_PROMPT = `You turn a B2B prospect search request into search filters. The results are always PEOPLE (contacts); company words describe the companies those people work at.
 
 You receive the request and the available filter fields, each with its key, label, kind and options. Return strict JSON:
-{"filters": {"<field key>": ["<value>", ...]}, "remaining_query": "<criteria no field can express, or empty>", "suggestions": [{"key": "<field key>", "value": "<option>"}, ...]}
+{"filters": {"<field key>": ["<value>", ...]}, "remaining_query": "<criteria no field can express, or empty>", "suggestions": [{"key": "<field key>", "value": "<option>"}, ...], "evidence": {"<field key>": "<the exact words of the request this field came from>"}}
 
 Rules:
 - Use only the given field keys. For "multi" fields return values copied exactly from that field's options. A field marked allow_custom may also take short free values (job titles, company names) when no option fits.
@@ -68,6 +71,7 @@ Rules:
 - Values within one field combine with OR; different fields with AND.
 - Add nothing the request doesn't say. Never guess values that are not options (except allow_custom fields).
 - suggestions: up to 6 related values the user might also want to add, from the "multi" fields' options only and never already in filters: adjacent industries (e.g. 'Public Relations and Communications Services' next to 'Marketing Services'), the neighbouring seniority level, related personas or departments, the next company-size band. Only closely related values; [] when nothing fits.
+- evidence: for every field you set in filters, quote the exact words of the request it came from (copied verbatim, e.g. "Marketing Directors", "in the United States", "changed jobs in the last 90 days").
 - remaining_query: a short phrase with only the criteria that no field could express (e.g. "recently raised a Series B"); "" when everything was mapped. Don't repeat mapped criteria there.`;
 
 function normalize(value: string): string {
@@ -75,7 +79,7 @@ function normalize(value: string): string {
 }
 
 /** Keeps only values a field accepts: exact options (matched case-insensitively), or short custom values where allowed. */
-export function sanitizeInterpretation(raw: z.infer<typeof modelOutputSchema>, fields: InterpretRequest["fields"]): InterpretResult {
+export function sanitizeInterpretation(raw: z.infer<typeof modelOutputSchema>, fields: InterpretRequest["fields"], requestQuery = ""): InterpretResult {
   const filters: Record<string, string[]> = {};
   for (const field of fields) {
     const proposed = raw.filters[field.key];
@@ -108,19 +112,33 @@ export function sanitizeInterpretation(raw: z.infer<typeof modelOutputSchema>, f
     suggestions.push({ key: field.key, value: option });
     if (suggestions.length >= MAX_SUGGESTIONS) break;
   }
-  return { filters, remaining_query: (raw.remaining_query ?? "").trim().slice(0, 500), suggestions };
+  // Evidence is kept only for fields that were set, and only when the words really occur in the request.
+  const evidence: Record<string, string> = {};
+  const query = normalize(requestQuery);
+  for (const [key, phrase] of Object.entries(raw.evidence)) {
+    const words = phrase.trim().slice(0, 120);
+    if (filters[key] && words && query.includes(normalize(words))) evidence[key] = words;
+  }
+  // Words already turned into a filter aren't also "searched as text".
+  let remaining = (raw.remaining_query ?? "").trim().slice(0, 500);
+  if (Object.values(evidence).some((words) => normalize(words) === normalize(remaining))) remaining = "";
+  return { filters, remaining_query: remaining, suggestions, evidence };
 }
 
 /** Offline interpretation for the mock provider: options mentioned verbatim in the request. */
 function interpretOffline(request: InterpretRequest): InterpretResult {
   const text = normalize(request.query);
   const filters: Record<string, string[]> = {};
+  const evidence: Record<string, string> = {};
   for (const field of request.fields) {
     if (field.kind !== "multi") continue;
     const hits = field.options.filter((option) => option.length >= 3 && text.includes(normalize(option)));
-    if (hits.length > 0) filters[field.key] = hits;
+    if (hits.length > 0) {
+      filters[field.key] = hits;
+      evidence[field.key] = hits.join(", ");
+    }
   }
-  return { filters, remaining_query: Object.keys(filters).length > 0 ? "" : request.query, suggestions: [] };
+  return { filters, remaining_query: Object.keys(filters).length > 0 ? "" : request.query, suggestions: [], evidence };
 }
 
 class QueryInterpreter {
@@ -137,7 +155,7 @@ class QueryInterpreter {
     const user = `Filter fields:\n${JSON.stringify(catalog)}\n\nRequest: ${JSON.stringify(request.query)}\n\nReturn the JSON.`;
     const text = await llmAdapter.generateCompletion(SYSTEM_PROMPT, user, undefined, undefined, "interpreter");
     try {
-      return sanitizeInterpretation(modelOutputSchema.parse(parseFencedJson(text)), request.fields);
+      return sanitizeInterpretation(modelOutputSchema.parse(parseFencedJson(text)), request.fields, request.query);
     } catch (err) {
       logger.warn(`Interpreter output was malformed: ${errorMessage(err)}. Raw: ${text.slice(0, 500)}`);
       throw new Error("The request couldn't be turned into filters. Try rephrasing it, or search the text as typed.");

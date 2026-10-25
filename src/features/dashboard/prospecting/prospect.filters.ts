@@ -199,3 +199,26 @@ export function applyInterpretation(base: ProspectFilters, result: InterpretResp
   }
   return next;
 }
+
+/** One line of "What we understood": the words of the query and the filters taken from them. */
+export interface UnderstoodPhrase {
+  /** The words of the query; null when the model didn't say which words a filter came from. */
+  phrase: string | null;
+  items: { label: string; values: string[] }[];
+}
+
+/** Groups an interpretation's filters by the words of the query they came from, in query order. */
+export function explainInterpretation(query: string, result: InterpretResponse, fields: readonly FilterField[]): UnderstoodPhrase[] {
+  const rows = new Map<string | null, UnderstoodPhrase>();
+  for (const field of fields) {
+    const values = result.filters[field.key];
+    if (!values || values.length === 0) continue;
+    const shown = field.kind === "toggle" ? ["Yes"] : values;
+    const phrase = result.evidence?.[field.key] ?? null;
+    const row = rows.get(phrase) ?? { phrase, items: [] };
+    row.items.push({ label: field.label, values: shown });
+    rows.set(phrase, row);
+  }
+  const position = (phrase: string | null) => (phrase === null ? Number.MAX_SAFE_INTEGER : query.toLowerCase().indexOf(phrase.toLowerCase()));
+  return [...rows.values()].sort((a, b) => position(a.phrase) - position(b.phrase));
+}

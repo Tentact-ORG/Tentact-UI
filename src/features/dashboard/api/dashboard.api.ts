@@ -79,6 +79,8 @@ export interface InterpretResponse {
   remaining_query: string;
   /** Related filter values to offer as one-click additions. */
   suggestions: { key: string; value: string }[];
+  /** Field key → the words of the query that field was taken from. */
+  evidence: Record<string, string>;
 }
 
 export interface RevealResponse {
