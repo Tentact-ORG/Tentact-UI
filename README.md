@@ -58,7 +58,7 @@ Administrators add further users in the admin console.
 
 | Route                                             | Rendering | Purpose                                                                         |
 | ------------------------------------------------- | --------- | ------------------------------------------------------------------------------- |
-| `/`                                               | static    | Landing page. Its header's "Sign in" opens `/login`; "Describe the list" is a live search for visitors ([docs/public_search.md](docs/public_search.md)). |
+| `/`                                               | static    | Landing page. Its header's "Sign in" opens `/login`; "Take yours." has a live search for visitors ([docs/public_search.md](docs/public_search.md)). |
 | `/terms`                                          | static    | Terms & Conditions                                                              |
 | `/login`                                          | dynamic   | Sign-in (`noindex`). Sends an already signed-in visitor to `/home`.             |
 | `/home`                                           | dynamic   | Dashboard home: stats, search bar and filter panel, saved searches, enrichment. |

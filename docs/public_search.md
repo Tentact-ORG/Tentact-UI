@@ -1,6 +1,6 @@
 # Landing page search
 
-The "Describe the list" section of the landing page has a working natural-language search for
+The "Stop renting lists. Take yours." section of the landing page has a working natural-language search for
 signed-out visitors. A request runs through the same pipeline as the dashboard (the model writes
 SQL, a second model reviews it, the validator checks it, and it runs read-only) and returns
 **10 real people** from the warehouse.
@@ -11,7 +11,7 @@ SQL, a second model reviews it, the validator checks it, and it runs read-only) 
   table can't be undone in the browser. Visitors unlock them by getting access (the demo booking)
   or signing in.
 
-Code: `src/features/home/sections/ring/ProspectSearch.tsx` (UI), `src/app/api/public-search/route.ts`
+Code: `src/features/home/components/ProspectSearch/ProspectSearch.tsx` (UI), `src/app/api/public-search/route.ts`
 (API), `src/server/services/publicProspectSearch.ts` (search and row shaping) and
 `src/server/services/publicSearchLimit.ts` (the limit).
 
