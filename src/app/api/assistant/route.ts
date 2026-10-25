@@ -8,6 +8,8 @@ import { assistantRequestSchema, siteAssistant } from "@/server/services/siteAss
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Hosts with a request time limit (Vercel): AI search takes 25–40 s, so allow up to the Hobby plan's 60 s.
+export const maxDuration = 60;
 
 // Public endpoint: each visitor gets a few messages per window, and all visitors together a ceiling, to bound model cost.
 const perVisitor = singleton("assistantVisitorLimiter", () => new RequestLimiter(20, 10 * 60_000));

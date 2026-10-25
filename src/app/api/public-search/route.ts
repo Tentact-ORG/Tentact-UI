@@ -16,6 +16,8 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Hosts with a request time limit (Vercel): AI search takes 25–40 s, so allow up to the Hobby plan's 60 s.
+export const maxDuration = 60;
 
 const logger = getLogger("leadgen.public_search");
 

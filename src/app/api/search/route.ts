@@ -7,6 +7,8 @@ import { searchOrchestrator } from "@/server/services/searchOrchestrator";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Hosts with a request time limit (Vercel): AI search takes 25–40 s, so allow up to the Hobby plan's 60 s.
+export const maxDuration = 60;
 
 /**
  * Executes the two-agent search workflow for the authenticated user. Contact
