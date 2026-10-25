@@ -28,7 +28,7 @@ const STARTERS = ["What data do you have?", "How does the search work?", "How mu
 const HISTORY = 10;
 const GREETING_DELAY_MS = 1200;
 /** Matches MivyCharacter's wave length, so hovering doesn't restart a wave mid-way. */
-const WAVE_MS = 2600;
+const WAVE_MS = 3200;
 
 /**
  * The landing page's chat assistant, Mivy: a launcher button in the

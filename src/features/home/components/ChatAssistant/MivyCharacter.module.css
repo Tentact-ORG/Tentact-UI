@@ -12,6 +12,7 @@
 }
 
 .layer,
+.bob,
 .body,
 .upperArm,
 .forearm {
@@ -27,13 +28,16 @@
   -webkit-user-drag: none;
 }
 
-/* ---------- body: breathing, and a bob with each step ---------- */
+/*
+ * ---------- body: breathing, and a bob with each step ----------
+ * The bob sits on its own wrapper so a step never interrupts the breathing.
+ */
 .body {
   transform-origin: 55% 96%;
   animation: breathe 3.4s ease-in-out infinite;
 }
 
-.stepping .body {
+.stepping .bob {
   animation: bob 1s ease-in-out;
 }
 
@@ -138,7 +142,12 @@
   width: 7.9%;
 }
 
-/* ---------- the wave: the arm swings out, the forearm comes up and waves ---------- */
+/*
+ * ---------- the wave ----------
+ * Both arm segments rise together and ease to rest (so the arm never pokes out
+ * stiffly), the forearm swings in eased arcs, then the arm settles back down.
+ * Timing functions are set per keyframe: each one shapes the segment after it.
+ */
 .upperArm {
   transform-origin: 36.84% 33.86%;
 }
@@ -147,56 +156,74 @@
   transform-origin: 36.47% 53.47%;
 }
 
+.waving .upperArm,
+.waving .forearm {
+  will-change: transform;
+}
+
 .waving .upperArm {
-  animation: raise 2.6s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: raise 3.2s both;
 }
 
 .waving .forearm {
-  animation: wave 2.6s ease-in-out;
+  animation: wave 3.2s both;
 }
 
 @keyframes raise {
-  0%,
+  0% {
+    transform: rotate(0deg);
+    animation-timing-function: cubic-bezier(0.3, 0.7, 0.4, 1);
+  }
+  22% {
+    transform: rotate(40deg);
+    animation-timing-function: ease-in-out;
+  }
+  50% {
+    transform: rotate(44deg);
+    animation-timing-function: ease-in-out;
+  }
+  78% {
+    transform: rotate(40deg);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1);
+  }
   100% {
     transform: rotate(0deg);
-  }
-  16%,
-  84% {
-    transform: rotate(42deg);
   }
 }
 
 @keyframes wave {
-  0%,
-  100% {
+  0% {
     transform: rotate(0deg);
+    animation-timing-function: cubic-bezier(0.3, 0.7, 0.4, 1);
   }
-  16% {
-    transform: rotate(118deg);
+  22% {
+    transform: rotate(122deg);
+    animation-timing-function: ease-in-out;
   }
-  28% {
-    transform: rotate(138deg);
+  36% {
+    transform: rotate(144deg);
+    animation-timing-function: ease-in-out;
   }
-  40% {
-    transform: rotate(108deg);
-  }
-  52% {
-    transform: rotate(138deg);
+  50% {
+    transform: rotate(112deg);
+    animation-timing-function: ease-in-out;
   }
   64% {
-    transform: rotate(108deg);
+    transform: rotate(144deg);
+    animation-timing-function: ease-in-out;
   }
-  76% {
-    transform: rotate(130deg);
+  78% {
+    transform: rotate(122deg);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1);
   }
-  84% {
-    transform: rotate(118deg);
+  100% {
+    transform: rotate(0deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .body,
-  .stepping .body,
+  .stepping .bob,
   .stepping .footLeft,
   .stepping .footRight,
   .waving .upperArm,

@@ -15,7 +15,7 @@ interface MivyCharacterProps {
 
 const LAYER_W = 474;
 const LAYER_H = 600;
-const WAVE_MS = 2600;
+const WAVE_MS = 3200;
 
 /**
  * Mivy, the chat assistant. The character is split into layers (body, the
@@ -28,6 +28,10 @@ export function MivyCharacter({ height, waveKey, className }: MivyCharacterProps
   const rootRef = useRef<HTMLSpanElement>(null);
   const [waving, setWaving] = useState(false);
   const [stepping, setStepping] = useState(false);
+  const wavingRef = useRef(false);
+  useEffect(() => {
+    wavingRef.current = waving;
+  }, [waving]);
   const width = Math.round((height * LAYER_W) / LAYER_H);
 
   // Wave whenever the caller asks.
@@ -48,6 +52,8 @@ export function MivyCharacter({ height, waveKey, className }: MivyCharacterProps
     const schedule = () => {
       timer = window.setTimeout(
         () => {
+          // Don't step mid-wave; the bob would jolt the raised arm.
+          if (wavingRef.current) return schedule();
           setStepping(true);
           timer = window.setTimeout(() => {
             setStepping(false);
@@ -125,19 +131,21 @@ export function MivyCharacter({ height, waveKey, className }: MivyCharacterProps
     <span ref={rootRef} className={cx(styles.root, waving && styles.waving, stepping && styles.stepping, className)} style={{ width, height }} aria-hidden="true">
       {layer("foot-left", styles.footLeft)}
       {layer("foot-right", styles.footRight)}
-      <span className={styles.body}>
-        {layer("body", "")}
-        <span className={cx(styles.eye, styles.eyeLeft)}>
-          <span className={styles.pupil} />
-        </span>
-        <span className={cx(styles.eye, styles.eyeRight)}>
-          <span className={styles.pupil} />
-        </span>
-        <span className={cx(styles.lid, styles.lidLeft)} />
-        <span className={cx(styles.lid, styles.lidRight)} />
-        <span className={styles.upperArm}>
-          {layer("arm-upper", "")}
-          <span className={styles.forearm}>{layer("arm-fore", "")}</span>
+      <span className={styles.bob}>
+        <span className={styles.body}>
+          {layer("body", "")}
+          <span className={cx(styles.eye, styles.eyeLeft)}>
+            <span className={styles.pupil} />
+          </span>
+          <span className={cx(styles.eye, styles.eyeRight)}>
+            <span className={styles.pupil} />
+          </span>
+          <span className={cx(styles.lid, styles.lidLeft)} />
+          <span className={cx(styles.lid, styles.lidRight)} />
+          <span className={styles.upperArm}>
+            {layer("arm-upper", "")}
+            <span className={styles.forearm}>{layer("arm-fore", "")}</span>
+          </span>
         </span>
       </span>
     </span>
