@@ -31,6 +31,12 @@
   margin-top: 22px;
 }
 
+/* Try the search: 10 people per request, a few free requests a day. */
+.search {
+  margin-top: 28px;
+  max-width: 520px;
+}
+
 .emailLink {
   color: var(--ink);
   border-bottom: 1px solid var(--red);

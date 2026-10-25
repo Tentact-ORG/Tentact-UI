@@ -1,7 +1,6 @@
-/* ---------- search bar (replaces the typed prompt line under the heading) ---------- */
+/* ---------- search bar ---------- */
 .search {
-  margin: 22px auto 0;
-  width: min(520px, 100%);
+  width: 100%;
 }
 
 .bar {
@@ -371,10 +370,6 @@
 }
 
 @media (max-width: 860px) {
-  .search {
-    width: 100%;
-  }
-
   .head {
     padding: 18px 18px 14px;
   }

@@ -4,8 +4,8 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEven
 import { createPortal } from "react-dom";
 import { SITE } from "@/config/site";
 import { cx } from "@/lib/cx";
-import { handleDemoLinkClick } from "../../components/DemoBooking/DemoBooking";
-import { INITIAL_TYPEWRITER_STATE, nextTypewriterStep, visibleText } from "./typewriter";
+import { handleDemoLinkClick } from "../DemoBooking/DemoBooking";
+import { INITIAL_TYPEWRITER_STATE, nextTypewriterStep, visibleText } from "../../sections/ring/typewriter";
 import styles from "./ProspectSearch.module.css";
 
 interface Prospect {
