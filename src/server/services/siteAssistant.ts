@@ -45,7 +45,9 @@ const FACTS = `
 - Sales: ${SITE.salesEmail}. Existing customers sign in at /login.
 `;
 
-const SYSTEM_PROMPT = `You are the friendly assistant on The Tentact's website, shown as the company's mascot. Answer visitors' questions about The Tentact using ONLY these facts:
+const BOT_NAME = SITE.assistantName;
+
+const SYSTEM_PROMPT = `You are ${BOT_NAME}, the friendly assistant on The Tentact's website, shown as the company's mascot. When you introduce yourself, say you are ${BOT_NAME}. Answer visitors' questions about The Tentact using ONLY these facts:
 ${FACTS}
 Rules:
 - Be brief: 1-3 short sentences, plain text, no markdown headings. Warm, confident, never pushy.
@@ -56,7 +58,7 @@ Rules:
 Return strict JSON: {"reply": "<your answer>", "suggest_demo": true|false}`;
 
 const OFFLINE_REPLY: AssistantReply = {
-  reply: `I'm ${SITE.name}'s assistant. We help you find verified B2B buyers from 420+ million records, filtered to your ideal customer profile. Want a quick 30-minute demo?`,
+  reply: `I'm ${BOT_NAME}, ${SITE.name}'s assistant. We help you find verified B2B buyers from 420+ million records, filtered to your ideal customer profile. Want a quick 30-minute demo?`,
   suggest_demo: true,
 };
 

@@ -7,6 +7,8 @@ import { handleDemoLinkClick } from "../DemoBooking/DemoBooking";
 import { Mascot, type MascotMood } from "./Mascot";
 import styles from "./ChatAssistant.module.css";
 
+const BOT_NAME = SITE.assistantName;
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -16,7 +18,7 @@ interface Message {
 
 const GREETING: Message = {
   role: "assistant",
-  content: `Hi! I'm ${SITE.name}'s assistant. Ask me about our data, how search works, pricing, or book a quick demo.`,
+  content: `Hi! I'm ${BOT_NAME}, ${SITE.name}'s assistant. Ask me about our data, how search works, pricing, or book a quick demo.`,
 };
 
 const STARTERS = ["What data do you have?", "How does the search work?", "How much does it cost?"];
@@ -97,21 +99,23 @@ export function ChatAssistant() {
   };
 
   const userHasAsked = messages.some((m) => m.role === "user");
+  // Thinking while a reply is on its way, attentive while the visitor types.
+  const liveMood: MascotMood = busy ? "thinking" : draft.trim() ? "listening" : mood;
 
   return (
     <div className={styles.root}>
-      <section id={panelId} className={cx(styles.panel, open && styles.panelOpen)} aria-label={`${SITE.name} assistant`} aria-hidden={!open} inert={!open}>
+      <section id={panelId} className={cx(styles.panel, open && styles.panelOpen)} aria-label={`Chat with ${BOT_NAME}`} aria-hidden={!open} inert={!open}>
         <header className={styles.head}>
           <div className={styles.avatar}>
-            <Mascot size={46} mood={mood} />
+            <Mascot size={50} mood={liveMood} />
           </div>
           <div className={styles.headText}>
-            <p className={styles.name}>{SITE.name} assistant</p>
+            <p className={styles.name}>{BOT_NAME}</p>
             <p className={styles.status}>
-              <i aria-hidden="true" /> {busy ? "Typing…" : "Online · replies in seconds"}
+              <i aria-hidden="true" /> {busy ? `${BOT_NAME} is typing…` : `${SITE.name}'s assistant · online`}
             </p>
           </div>
-          <button type="button" className={styles.close} onClick={() => setOpen(false)} aria-label="Close the assistant">
+          <button type="button" className={styles.close} onClick={() => setOpen(false)} aria-label={`Close the chat with ${BOT_NAME}`}>
             ×
           </button>
         </header>
@@ -128,10 +132,15 @@ export function ChatAssistant() {
             </div>
           ))}
           {busy && (
-            <div className={cx(styles.message, styles.fromBot, styles.typing)} aria-label="The assistant is typing">
+            <div className={cx(styles.message, styles.fromBot, styles.typing)} aria-label={`${BOT_NAME} is typing`}>
               <span />
               <span />
               <span />
+            </div>
+          )}
+          {!userHasAsked && (
+            <div className={styles.stage} aria-hidden="true">
+              <Mascot size={112} mood={liveMood} followPointer={open} />
             </div>
           )}
           {!userHasAsked && (
@@ -153,7 +162,7 @@ export function ChatAssistant() {
             ref={inputRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Ask about The Tentact…"
+            placeholder={`Ask ${BOT_NAME} about ${SITE.name}…`}
             aria-label="Your message"
             maxLength={600}
             autoComplete="off"
@@ -169,7 +178,7 @@ export function ChatAssistant() {
       {bubble && !open && (
         <div className={styles.bubble}>
           <button type="button" className={styles.bubbleText} onClick={() => setOpen(true)}>
-            Hi there! Looking for buyers? Ask me anything.
+            Hi, I&apos;m {BOT_NAME}! Looking for buyers? Ask me anything.
           </button>
           <button type="button" className={styles.bubbleClose} onClick={() => setBubble(false)} aria-label="Dismiss">
             ×
@@ -186,11 +195,11 @@ export function ChatAssistant() {
         }}
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label={open ? "Close the assistant" : `Chat with ${SITE.name}'s assistant`}
+        aria-label={open ? `Close the chat with ${BOT_NAME}` : `Chat with ${BOT_NAME}, ${SITE.name}'s assistant`}
       >
         <span className={styles.halo} aria-hidden="true" />
         <span className={styles.badge}>
-          <Mascot size={58} mood={busy ? "thinking" : mood} followPointer={!open} />
+          <Mascot size={58} mood={liveMood} followPointer={!open} />
         </span>
       </button>
     </div>

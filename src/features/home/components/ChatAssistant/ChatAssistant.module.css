@@ -174,8 +174,9 @@
 .avatar {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
+  flex: none;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: radial-gradient(circle at 30% 25%, #fff, #f1ece2);
   box-shadow: inset 0 -4px 10px rgba(14, 14, 15, 0.12);
@@ -306,6 +307,13 @@
     transform: translateY(-4px);
     opacity: 1;
   }
+}
+
+/* Minnu on stage in the welcome view, with room to hop. */
+.stage {
+  display: grid;
+  place-items: center;
+  padding: 18px 0 6px;
 }
 
 .starters {
