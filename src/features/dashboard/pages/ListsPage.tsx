@@ -25,7 +25,7 @@ export function ListsPage() {
           </ButtonLink>
         }
       />
-      <ProspectLists lists={lists} onExport={actions.exportList} onDelete={actions.deleteList} />
+      <ProspectLists lists={lists} onExport={actions.exportList} onDelete={(id) => void actions.deleteList(id)} />
     </div>
   );
 }

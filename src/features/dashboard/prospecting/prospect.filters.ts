@@ -1,18 +1,17 @@
+import type { ColumnValues } from "../api/dashboard.api";
 import {
-  DEPARTMENTS,
-  EMPLOYEE_BANDS,
+  DIRECT_DIAL_FILTER,
+  FILTER_COLUMNS,
+  VERIFIED_EMAIL_FILTER,
+  type CountryNames,
+  type FilterColumn,
+} from "./prospect.query";
+import {
   EMPTY_FILTERS,
-  FUNDING_STAGES,
-  HIRING_SIGNALS,
-  INTENT_LEVELS,
   JOB_CHANGE_WINDOWS,
-  PROSPECT_SOURCES,
-  REVENUE_BANDS,
-  SENIORITIES,
   type EnrichmentOptions,
   type JobChangeWindow,
   type MultiFilterKey,
-  type Prospect,
   type ProspectFilters,
   type ToggleFilterKey,
 } from "./prospect.types";
@@ -25,41 +24,76 @@ interface FieldBase {
 }
 
 export type FilterField =
-  | (FieldBase & { kind: "multi"; key: MultiFilterKey; options: readonly string[] })
+  | (FieldBase & { kind: "multi"; key: MultiFilterKey; options: readonly string[]; allowCustom: boolean })
   | (FieldBase & { kind: "toggle"; key: ToggleFilterKey; description: string })
   | (FieldBase & { kind: "choice"; key: "jobChange"; options: readonly { value: JobChangeWindow; label: string }[] });
+
+/** Discovered values for the warehouse columns behind the filters (`/api/search/metadata/values`). */
+export type Facets = Readonly<Record<string, ColumnValues>>;
 
 function uniqueSorted(values: Iterable<string>): string[] {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
-/**
- * The filter registry. Enumerated attributes have fixed options; free-text
- * attributes (titles, companies, locations, technologies…) offer the values
- * present in the workspace's data.
- */
-export function buildFilterFields(prospects: readonly Prospect[]): FilterField[] {
-  return [
-    { kind: "multi", tab: "people", key: "titles", label: "Job title", options: uniqueSorted(prospects.map((p) => p.title)) },
-    { kind: "multi", tab: "people", key: "seniorities", label: "Seniority", options: SENIORITIES },
-    { kind: "multi", tab: "people", key: "departments", label: "Department", options: DEPARTMENTS },
-    { kind: "multi", tab: "people", key: "functions", label: "Job function", options: uniqueSorted(prospects.map((p) => p.jobFunction)) },
-    { kind: "multi", tab: "people", key: "countries", label: "Location", options: uniqueSorted(prospects.map((p) => p.country)) },
-    { kind: "choice", tab: "people", key: "jobChange", label: "Changed jobs", options: JOB_CHANGE_WINDOWS },
-    { kind: "toggle", tab: "people", key: "verifiedEmail", label: "Verified email only", description: "Email checked before delivery" },
-    { kind: "toggle", tab: "people", key: "directDial", label: "Direct dial only", description: "A validated phone number on record" },
-    { kind: "multi", tab: "people", key: "sources", label: "Data source", options: PROSPECT_SOURCES },
+const MULTI_FIELDS: readonly { key: MultiFilterKey; tab: FieldBase["tab"]; label: string }[] = [
+  { key: "titles", tab: "people", label: "Job title" },
+  { key: "seniorities", tab: "people", label: "Seniority" },
+  { key: "departments", tab: "people", label: "Department" },
+  { key: "functions", tab: "people", label: "Persona" },
+  { key: "countries", tab: "people", label: "Location" },
+  { key: "sources", tab: "people", label: "Data source" },
+  { key: "companies", tab: "company", label: "Company" },
+  { key: "industries", tab: "company", label: "Industry" },
+  { key: "employees", tab: "company", label: "Employees" },
+  { key: "revenue", tab: "company", label: "Revenue" },
+  { key: "headquarters", tab: "company", label: "Headquarters" },
+  { key: "technologies", tab: "company", label: "Technologies used" },
+  { key: "hiring", tab: "company", label: "Hiring activity" },
+  { key: "funding", tab: "company", label: "Funding" },
+];
 
-    { kind: "multi", tab: "company", key: "companies", label: "Company", options: uniqueSorted(prospects.map((p) => p.company.name)) },
-    { kind: "multi", tab: "company", key: "industries", label: "Industry", options: uniqueSorted(prospects.map((p) => p.company.industry)) },
-    { kind: "multi", tab: "company", key: "employees", label: "Employees", options: EMPLOYEE_BANDS },
-    { kind: "multi", tab: "company", key: "revenue", label: "Revenue", options: REVENUE_BANDS },
-    { kind: "multi", tab: "company", key: "headquarters", label: "Headquarters", options: uniqueSorted(prospects.map((p) => p.company.headquarters)) },
-    { kind: "multi", tab: "company", key: "technologies", label: "Technologies used", options: uniqueSorted(prospects.flatMap((p) => p.company.technologies)) },
-    { kind: "multi", tab: "company", key: "hiring", label: "Hiring activity", options: HIRING_SIGNALS },
-    { kind: "multi", tab: "company", key: "funding", label: "Funding", options: FUNDING_STAGES },
-    { kind: "multi", tab: "company", key: "intent", label: "Buying intent", options: INTENT_LEVELS },
-  ];
+/** A column the caller may query and that holds data. */
+function usable(facets: Facets, column: string): boolean {
+  const facet = facets[column];
+  return facet !== undefined && !facet.empty;
+}
+
+function optionsFor(definition: FilterColumn, facets: Facets, countries: CountryNames): string[] {
+  if (definition.fixedOptions) return Object.keys(definition.fixedOptions);
+  const values = definition.optionsFrom ? (facets[definition.optionsFrom]?.values ?? []) : [];
+  return uniqueSorted(definition.countryCodes ? values.map((code) => countries.name(code)) : values);
+}
+
+/**
+ * The filter registry. Every filter maps to a warehouse column (see
+ * `prospect.query.ts`); options are the values discovered in that column, and
+ * filters whose column is unavailable to this user or holds no data are left out.
+ */
+export function buildFilterFields(facets: Facets, countries: CountryNames): FilterField[] {
+  const fields: FilterField[] = [];
+  for (const { key, tab, label } of MULTI_FIELDS) {
+    const definition = FILTER_COLUMNS[key];
+    if (!definition || !usable(facets, definition.column)) continue;
+    const options = optionsFor(definition, facets, countries);
+    const allowCustom = definition.custom === true;
+    if (options.length === 0 && !allowCustom) continue;
+    fields.push({ kind: "multi", tab, key, label, options, allowCustom });
+  }
+
+  const peopleToggles: FilterField[] = [];
+  if (usable(facets, "new_combined_data.JOB_START_DATE")) {
+    peopleToggles.push({ kind: "choice", tab: "people", key: "jobChange", label: "Changed jobs", options: JOB_CHANGE_WINDOWS });
+  }
+  if (usable(facets, VERIFIED_EMAIL_FILTER.field)) {
+    peopleToggles.push({ kind: "toggle", tab: "people", key: "verifiedEmail", label: "Verified email only", description: "Email checked before delivery" });
+  }
+  if (usable(facets, DIRECT_DIAL_FILTER.field)) {
+    peopleToggles.push({ kind: "toggle", tab: "people", key: "directDial", label: "Phone number only", description: "A phone number on record" });
+  }
+  // Keep the toggles after the people list filters and before the company tab.
+  const firstCompany = fields.findIndex((field) => field.tab === "company");
+  fields.splice(firstCompany === -1 ? fields.length : firstCompany, 0, ...peopleToggles);
+  return fields;
 }
 
 export const ENRICHMENT_FIELDS: readonly { key: keyof EnrichmentOptions; label: string; description: string }[] = [
@@ -75,10 +109,10 @@ const FILTER_LABELS: Record<Exclude<keyof ProspectFilters, "query">, string> = {
   titles: "Title",
   seniorities: "Seniority",
   departments: "Department",
-  functions: "Function",
+  functions: "Persona",
   countries: "Location",
   verifiedEmail: "Verified email",
-  directDial: "Direct dial",
+  directDial: "Phone",
   jobChange: "Changed jobs",
   sources: "Source",
   companies: "Company",

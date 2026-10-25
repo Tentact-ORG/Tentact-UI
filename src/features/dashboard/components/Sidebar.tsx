@@ -33,6 +33,8 @@ interface NavGroup {
 interface SidebarProps {
   id: string;
   workspace: WorkspaceSummary;
+  /** Shows the admin console (users, schema, relationships, audit) for administrators and auditors. */
+  canAdmin: boolean;
   open: boolean;
   /** True when the sidebar is rendered as a drawer. */
   compact: boolean;
@@ -73,7 +75,7 @@ function NavLink({ item, active, onNavigate }: { item: NavItem; active: boolean;
   );
 }
 
-export function Sidebar({ id, workspace, open, compact, onClose, onSearch }: SidebarProps) {
+export function Sidebar({ id, workspace, canAdmin, open, compact, onClose, onSearch }: SidebarProps) {
   const pathname = usePathname();
 
   const groups: NavGroup[] = [
@@ -86,10 +88,12 @@ export function Sidebar({ id, workspace, open, compact, onClose, onSearch }: Sid
     },
     {
       label: "Workspace",
-      items: [
-        { label: "Team", icon: UsersIcon, soon: true },
-        { label: "Settings", icon: SettingsIcon, soon: true },
-      ],
+      items: canAdmin
+        ? [{ label: DASHBOARD_PAGES.admin.title, icon: SettingsIcon, href: DASHBOARD_PAGES.admin.href }]
+        : [
+            { label: "Team", icon: UsersIcon, soon: true },
+            { label: "Settings", icon: SettingsIcon, soon: true },
+          ],
     },
     {
       label: "Others",

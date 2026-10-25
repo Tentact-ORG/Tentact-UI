@@ -6,12 +6,20 @@ import { cx } from "@/lib/cx";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, ListIcon, MailIcon, PhoneIcon } from "../components/icons";
 import { fullName, initials } from "./prospect.matching";
 import type { Prospect } from "./prospect.types";
+import type { SearchStatus } from "./useProspectSearch";
 import styles from "./Prospecting.module.css";
 
 export const PAGE_SIZE = 8;
 
 interface ProspectTableProps {
   results: readonly Prospect[];
+  status: SearchStatus;
+  /** Error or clarification text from the last search. */
+  message: string | null;
+  /** Matching prospects in the warehouse (more than `results` when not all are loaded). */
+  total: number;
+  hasMore: boolean;
+  onLoadMore: () => void;
   page: number;
   onPageChange: (page: number) => void;
   selectedIds: ReadonlySet<string>;
@@ -28,7 +36,7 @@ function SignalChips({ prospect }: { prospect: Prospect }) {
   if (prospect.jobChangeDays !== null && prospect.jobChangeDays <= 90) {
     chips.push({ label: `New role · ${prospect.jobChangeDays}d`, tone: styles.signalYellow });
   }
-  const hiring = prospect.company.hiring.find((signal) => signal !== "Not hiring");
+  const hiring = prospect.company.hiring[0];
   if (hiring) chips.push({ label: hiring, tone: styles.signalMint });
   if (prospect.company.intent === "High") chips.push({ label: "High intent", tone: styles.signalPeach });
   if (chips.length === 0) return <span className={styles.muted}>—</span>;
@@ -56,7 +64,7 @@ function VerifiedMarks({ prospect }: { prospect: Prospect }) {
       </span>
       <span
         className={cx(styles.verifiedMark, prospect.directDial && styles.verifiedOn)}
-        aria-label={prospect.directDial ? "Direct dial on record" : "No direct dial"}
+        aria-label={prospect.directDial ? "Phone number on record" : "No phone number"}
         role="img"
       >
         <PhoneIcon width={14} height={14} />
@@ -116,6 +124,11 @@ function pageNumbers(current: number, total: number): number[] {
 /** Results as a table on wide screens and as cards on narrow ones, with selection and paging. */
 export function ProspectTable({
   results,
+  status,
+  message,
+  total,
+  hasMore,
+  onLoadMore,
   page,
   onPageChange,
   selectedIds,
@@ -138,7 +151,11 @@ export function ProspectTable({
         <div>
           <h2 id="results-title">Prospects</h2>
           <p className={styles.resultsMeta}>
-            {results.length === 0 ? "No results" : `${results.length} result${results.length === 1 ? "" : "s"} · page ${currentPage} of ${pageCount}`}
+            {status === "loading"
+              ? "Searching the warehouse…"
+              : results.length === 0
+                ? "No results"
+                : `${total.toLocaleString("en-US")} result${total === 1 ? "" : "s"} · ${results.length.toLocaleString("en-US")} loaded · page ${currentPage} of ${pageCount}`}
           </p>
         </div>
         {selectedIds.size > 0 && (
@@ -156,7 +173,20 @@ export function ProspectTable({
         )}
       </div>
 
-      {results.length === 0 ? (
+      {status === "loading" ? (
+        <div className={styles.empty} role="status">
+          <p>Generating and checking the query, then searching the warehouse. This can take up to a minute.</p>
+        </div>
+      ) : status === "error" || status === "clarification" ? (
+        <div className={styles.empty} role={status === "error" ? "alert" : "status"}>
+          <p>{message ?? "The search couldn't be completed."}</p>
+          {status === "clarification" && <p className={styles.muted}>Add detail to the search or choose filters, then search again.</p>}
+        </div>
+      ) : status === "idle" ? (
+        <div className={styles.empty}>
+          <p>Describe who you&apos;re looking for or choose filters, then press Enter to search.</p>
+        </div>
+      ) : results.length === 0 ? (
         <div className={styles.empty}>
           <p>No prospects match these filters.</p>
           <Button variant="line" onClick={onClearFilters}>
@@ -266,6 +296,14 @@ export function ProspectTable({
               );
             })}
           </ul>
+
+          {(hasMore || status === "loadingMore") && currentPage === pageCount && (
+            <div className={styles.loadMore}>
+              <Button variant="line" onClick={onLoadMore} loading={status === "loadingMore"} disabled={status === "loadingMore"}>
+                {status === "loadingMore" ? "Loading more…" : "Load more prospects"}
+              </Button>
+            </div>
+          )}
 
           {pageCount > 1 && (
             <nav className={styles.pagination} aria-label="Results pages">

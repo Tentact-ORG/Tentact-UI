@@ -23,8 +23,8 @@ const TABS: { id: FilterTab; label: string; Icon: typeof UserIcon }[] = [
  * they carry over between pages.
  */
 export function ProspectSearch() {
-  const { search, fields, prospects } = useWorkspaceData();
-  const { filters, results, setQuery, toggleOption, setToggle, setJobChange, clearField, clearAll } = search;
+  const { search, fields, fieldsReady, fieldsError } = useWorkspaceData();
+  const { filters, state, dirty, busy, run, setQuery, toggleOption, setToggle, setJobChange, clearField, clearAll } = search;
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<FilterTab>("people");
   const containerRef = useRef<HTMLElement>(null);
@@ -36,6 +36,27 @@ export function ProspectSearch() {
   const countForTab = (id: FilterTab) => chips.filter((chip) => fields.some((field) => field.tab === id && field.key === chip.key)).length;
 
   const openPanel = useCallback(() => setOpen(true), []);
+
+  /** Closes the panel and searches with the current filters. */
+  const submit = useCallback(() => {
+    setOpen(false);
+    void run();
+  }, [run]);
+
+  const finish = () => {
+    if (dirty) submit();
+    else setOpen(false);
+  };
+
+  let matchSummary;
+  if (busy) matchSummary = <>Searching…</>;
+  else if (state.status === "success" && !dirty) {
+    matchSummary = (
+      <>
+        <b>{state.total.toLocaleString("en-US")}</b> {state.exactCount ? "match" : "loaded"}
+      </>
+    );
+  } else matchSummary = <>Press Done to search</>;
 
   // Arriving from the "/" shortcut or the sidebar's search button.
   useEffect(() => {
@@ -79,7 +100,7 @@ export function ProspectSearch() {
     <section ref={containerRef} className={styles.search} aria-labelledby={`${panelId}-title`}>
       <div className={styles.searchHead}>
         <h2 id={`${panelId}-title`}>Find your next buyers</h2>
-        <p>Describe who you sell to, or open the filters to build the list field by field.</p>
+        <p>Describe who you sell to, or open the filters to build the list field by field, then press Enter.</p>
       </div>
 
       <div
@@ -96,6 +117,12 @@ export function ProspectSearch() {
           className={styles.barInput}
           value={filters.query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              submit();
+            }
+          }}
           onFocus={openPanel}
           placeholder="Search people or companies, e.g. “VP Marketing SaaS London”"
           aria-label="Search prospects"
@@ -148,15 +175,15 @@ export function ProspectSearch() {
             })}
           </div>
           <div className={styles.panelMeta}>
-            <span className={styles.panelCount}>
-              <b>{results.length}</b> of {prospects.length} match
+            <span className={styles.panelCount} aria-live="polite">
+              {matchSummary}
             </span>
             {chips.length > 0 && (
               <button type="button" className={styles.linkButton} onClick={clearAll}>
                 Clear all
               </button>
             )}
-            <button type="button" className={styles.doneButton} onClick={() => setOpen(false)}>
+            <button type="button" className={styles.doneButton} onClick={finish} disabled={busy}>
               Done
             </button>
           </div>
@@ -165,6 +192,12 @@ export function ProspectSearch() {
         <div role="tabpanel" id={tabPanelId(tab)} aria-labelledby={tabId(tab)} className={styles.tabPanel}>
           {tab === "enrich" ? (
             <EnrichmentOptions />
+          ) : !fieldsReady ? (
+            <p className={styles.noOptions}>Loading filters…</p>
+          ) : fieldsError ? (
+            <p className={styles.noOptions} role="alert">
+              {fieldsError}
+            </p>
           ) : (
             <div className={styles.fieldGrid}>
               {fields

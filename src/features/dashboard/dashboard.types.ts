@@ -4,6 +4,13 @@ export interface WorkspaceSummary {
 
 export interface DashboardUser {
   email: string;
+  /** ADMIN, AUDITOR or MEMBER. */
+  role: string;
+}
+
+/** Administrators and auditors can open the admin console. */
+export function canOpenAdminConsole(role: string): boolean {
+  return role === "ADMIN" || role === "AUDITOR";
 }
 
 /** Display name derived from a work email, e.g. `maya.rao@…` → `Maya`. */

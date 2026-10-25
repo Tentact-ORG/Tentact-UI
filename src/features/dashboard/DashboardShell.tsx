@@ -5,7 +5,7 @@ import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
-import type { DashboardUser, WorkspaceSummary } from "./dashboard.types";
+import { canOpenAdminConsole, type DashboardUser, type WorkspaceSummary } from "./dashboard.types";
 import { DASHBOARD_PAGES } from "./navigation";
 import { focusProspectSearch, requestSearchFocus } from "./prospecting/search-focus";
 import { useWorkspaceData, WorkspaceDataProvider } from "./WorkspaceDataContext";
@@ -81,11 +81,12 @@ export function DashboardShell({ workspace, user, children }: DashboardShellProp
   }, [goToSearch]);
 
   return (
-    <WorkspaceDataProvider storageKey={user.email}>
+    <WorkspaceDataProvider storageKey={user.email} role={user.role}>
       <div className={styles.shell}>
         <Sidebar
           id={sidebarId}
           workspace={workspace}
+          canAdmin={canOpenAdminConsole(user.role)}
           open={drawerOpen}
           compact={isCompact}
           onClose={closeMenu}

@@ -19,9 +19,11 @@ interface OverviewPageProps {
 
 /** /home: the workspace at a glance, the search bar, and saved searches. Enrichment lives in the search panel's Enrich tab. */
 export function OverviewPage({ firstName, workspaceName }: OverviewPageProps) {
-  const { search, prospects, savedSearches } = useWorkspaceData();
-  const { filters, results, summary } = search;
+  const { search, savedSearches } = useWorkspaceData();
+  const { filters, results, summary, state } = search;
   const actions = useProspectingActions();
+  const searched = state.status === "success";
+  const loadedNote = `of ${results.length.toLocaleString("en-US")} loaded`;
 
   return (
     <div className={styles.page}>
@@ -37,27 +39,33 @@ export function OverviewPage({ firstName, workspaceName }: OverviewPageProps) {
       />
 
       <section className={styles.stats} aria-label="Overview of the current results">
-        <StatCard label="Matching prospects" value={summary.total} detail={`of ${prospects.length} in the workspace`} tone="ink" />
-        <StatCard label="Verified emails" value={summary.verifiedEmail} detail={`${percentage(summary.verifiedEmail, summary.total)}% of matches`} tone="mint" />
-        <StatCard label="Direct dials" value={summary.directDial} detail={`${percentage(summary.directDial, summary.total)}% of matches`} tone="sky" />
-        <StatCard label="Changed jobs" value={summary.recentJobChanges} detail="In the last 90 days" tone="yellow" />
-        <StatCard label="High intent" value={summary.highIntent} detail="Companies showing buying signals" tone="peach" />
+        <StatCard
+          label="Matching prospects"
+          value={searched ? state.total : 0}
+          detail={searched ? (state.exactCount ? "Distinct people in the warehouse" : "At least this many") : "Run a search to see matches"}
+          tone="ink"
+        />
+        <StatCard label="Verified emails" value={summary.verifiedEmail} detail={`${percentage(summary.verifiedEmail, summary.total)}% ${loadedNote}`} tone="mint" />
+        <StatCard label="Phone numbers" value={summary.directDial} detail={`${percentage(summary.directDial, summary.total)}% ${loadedNote}`} tone="sky" />
+        <StatCard label="Changed jobs" value={summary.recentJobChanges} detail={`In the last 90 days, ${loadedNote}`} tone="yellow" />
+        <StatCard label="Hiring now" value={summary.hiring} detail={`At companies with open roles, ${loadedNote}`} tone="peach" />
       </section>
 
       <ProspectSearch />
 
       <ActiveFilters
         filters={filters}
-        resultCount={results.length}
-        totalCount={prospects.length}
+        resultCount={searched ? state.total : null}
+        exactCount={state.exactCount}
+        exporting={actions.exporting}
         onRemove={actions.removeChip}
         onClearAll={search.clearAll}
-        onSaveSearch={actions.saveCurrentSearch}
-        onExport={() => actions.exportProspects(results, filters.query || "prospects")}
+        onSaveSearch={(name) => void actions.saveCurrentSearch(name)}
+        onExport={() => void actions.exportResults()}
         viewResultsHref={DASHBOARD_PAGES.search.href}
       />
 
-      <SavedSearches searches={savedSearches} onApply={actions.applySavedSearch} onDelete={actions.deleteSavedSearch} />
+      <SavedSearches searches={savedSearches} onApply={actions.applySavedSearch} onDelete={(id) => void actions.deleteSavedSearch(id)} />
     </div>
   );
 }

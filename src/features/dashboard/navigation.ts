@@ -6,6 +6,7 @@ export const DASHBOARD_PAGES = {
   search: { href: `${ROUTES.dashboard}/search`, title: "Prospect search" },
   lists: { href: `${ROUTES.dashboard}/lists`, title: "Lists" },
   credits: { href: ROUTES.credits, title: "Credits" },
+  admin: { href: `${ROUTES.dashboard}/admin`, title: "Admin console" },
 } as const;
 
 export type DashboardPageKey = keyof typeof DASHBOARD_PAGES;

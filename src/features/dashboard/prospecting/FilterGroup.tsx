@@ -32,9 +32,19 @@ function MultiSelectGroup({ field, selected, onToggle, onClear }: MultiSelectPro
   const [optionQuery, setOptionQuery] = useState("");
   const searchId = useId();
 
-  const searchable = field.options.length >= SEARCHABLE_FROM;
-  const needle = optionQuery.trim().toLowerCase();
-  const matching = needle ? field.options.filter((option) => option.toLowerCase().includes(needle)) : field.options;
+  const searchable = field.allowCustom || field.options.length >= SEARCHABLE_FROM;
+  const typed = optionQuery.trim();
+  const needle = typed.toLowerCase();
+  // Typed values that aren't options yet (free-text attributes) are listed alongside the options.
+  const options = [...field.options, ...selected.filter((value) => !field.options.includes(value))];
+  const matching = needle ? options.filter((option) => option.toLowerCase().includes(needle)) : options;
+  const canAddTyped = field.allowCustom && typed.length > 0 && !options.some((option) => option.toLowerCase() === needle);
+
+  const addTyped = () => {
+    if (!canAddTyped) return;
+    onToggle(typed);
+    setOptionQuery("");
+  };
   const collapsible = !needle && matching.length > COLLAPSED_OPTION_COUNT;
   // Selected options always stay visible, even when the list is collapsed.
   const visible =
@@ -59,10 +69,16 @@ function MultiSelectGroup({ field, selected, onToggle, onClear }: MultiSelectPro
           id={searchId}
           type="search"
           className={styles.optionSearch}
-          placeholder={`Find a ${field.label.toLowerCase()}…`}
-          aria-label={`Find a ${field.label.toLowerCase()}`}
+          placeholder={field.allowCustom ? `Type a ${field.label.toLowerCase()}…` : `Find a ${field.label.toLowerCase()}…`}
+          aria-label={field.allowCustom ? `Type or find a ${field.label.toLowerCase()}` : `Find a ${field.label.toLowerCase()}`}
           value={optionQuery}
           onChange={(event) => setOptionQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              addTyped();
+            }
+          }}
           autoComplete="off"
         />
       )}
@@ -82,7 +98,14 @@ function MultiSelectGroup({ field, selected, onToggle, onClear }: MultiSelectPro
             </button>
           );
         })}
-        {visible.length === 0 && <span className={styles.noOptions}>No matches.</span>}
+        {canAddTyped && (
+          <button type="button" className={styles.chip} onClick={addTyped}>
+            Add “{typed}”
+          </button>
+        )}
+        {visible.length === 0 && !canAddTyped && (
+          <span className={styles.noOptions}>{field.allowCustom ? "Type a value to add it." : "No matches."}</span>
+        )}
       </div>
 
       {collapsible && (

@@ -13,14 +13,16 @@ import styles from "./Pages.module.css";
 
 /** /home/search: the filter panel and the full, selectable results. */
 export function SearchPage() {
-  const { search, prospects } = useWorkspaceData();
-  const { filters, results } = search;
+  const { search, role } = useWorkspaceData();
+  const { filters, results, state } = search;
   const actions = useProspectingActions();
+  const searched = state.status === "success" || state.status === "loadingMore";
 
-  // The page is remembered per filter set, so changing a filter starts from the first page again.
-  const [pageState, setPageState] = useState<{ filters: ProspectFilters; page: number } | null>(null);
+  // The page is remembered per result set, so a new search starts from the first page again.
+  const [pageState, setPageState] = useState<{ filters: ProspectFilters | null; page: number } | null>(null);
+  const resultKey = state.searchedFilters;
   const pageCount = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
-  const page = Math.min(pageState && pageState.filters === filters ? pageState.page : 1, pageCount);
+  const page = Math.min(pageState && pageState.filters === resultKey ? pageState.page : 1, pageCount);
 
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
   // Only selections that are still in the results count; records filtered out are released.
@@ -45,7 +47,10 @@ export function SearchPage() {
     });
 
   const saveSelectionAsList = (name: string) => {
-    actions.createList(name, [...visibleSelectedIds]);
+    void actions.createList(
+      name,
+      results.filter((prospect) => visibleSelectedIds.has(prospect.id)),
+    );
     setSelectedIds(new Set());
   };
 
@@ -62,18 +67,28 @@ export function SearchPage() {
 
       <ActiveFilters
         filters={filters}
-        resultCount={results.length}
-        totalCount={prospects.length}
+        resultCount={searched ? state.total : null}
+        exactCount={state.exactCount}
+        exporting={actions.exporting}
         onRemove={actions.removeChip}
         onClearAll={search.clearAll}
-        onSaveSearch={actions.saveCurrentSearch}
-        onExport={() => actions.exportProspects(results, filters.query || "prospects")}
+        onSaveSearch={(name) => void actions.saveCurrentSearch(name)}
+        onExport={() => void actions.exportResults()}
       />
+
+      {state.assumptions.length > 0 && state.status === "success" && (
+        <p className={styles.searchNote}>Assumed: {state.assumptions.join(" ")}</p>
+      )}
 
       <ProspectTable
         results={results}
+        status={state.status}
+        message={state.message}
+        total={state.total}
+        hasMore={search.hasMore}
+        onLoadMore={search.loadMore}
         page={page}
-        onPageChange={(next) => setPageState({ filters, page: next })}
+        onPageChange={(next) => setPageState({ filters: resultKey, page: next })}
         selectedIds={visibleSelectedIds}
         onToggleSelect={toggleSelect}
         onTogglePage={togglePage}
@@ -82,6 +97,17 @@ export function SearchPage() {
         onExportSelection={() => actions.exportProspects(results.filter((p) => visibleSelectedIds.has(p.id)), "selection")}
         onClearFilters={search.clearAll}
       />
+
+      {(role === "ADMIN" || role === "AUDITOR") && state.diagnostic?.generated_sql && (
+        <details className={styles.diagnostic}>
+          <summary>
+            Query details · {state.diagnostic.reviewer_verdict ?? "—"} · validation {state.diagnostic.validation_status ?? "—"}
+            {state.diagnostic.repair_attempts > 0 ? ` · ${state.diagnostic.repair_attempts} repair(s)` : ""}
+          </summary>
+          <pre>{state.diagnostic.generated_sql}</pre>
+          {state.diagnostic.reviewer_reasoning && <p>{state.diagnostic.reviewer_reasoning}</p>}
+        </details>
+      )}
     </div>
   );
 }

@@ -1,14 +1,16 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
-import { buildFilterFields, isProspectFilters, type FilterField } from "./prospecting/prospect.filters";
-import { summariseProspects, type ProspectSummary } from "./prospecting/prospect.matching";
-import { sampleProspectRepository, type ProspectRepository } from "./prospecting/prospect.repository";
+import { dashboardApi, errorText, type ProspectListRecord, type SavedSearchRecord } from "./api/dashboard.api";
+import { buildFilterFields, isProspectFilters, type Facets, type FilterField } from "./prospecting/prospect.filters";
+import { createCountryNames, facetKeys, toSearchRequest } from "./prospecting/prospect.query";
 import {
   DEFAULT_ENRICHMENT,
+  EMPTY_FILTERS,
   type EnrichmentOptions,
   type Prospect,
+  type ProspectFilters,
   type ProspectList,
   type SavedSearch,
 } from "./prospecting/prospect.types";
@@ -18,130 +20,156 @@ import { useProspectSearch, type ProspectSearchController } from "./prospecting/
  * State shared by every dashboard page. It lives in the dashboard layout, so it
  * survives client-side navigation between pages:
  *
- * - the prospect data and the live search (filters, results, summary);
- * - what the visitor creates themselves (saved searches, lists, enrichment
- *   preferences), kept per account in the browser until a backend exists;
+ * - the filter options discovered in the lead warehouse and the live search;
+ * - the organization's saved searches and prospect lists (server-side);
+ * - enrichment preferences, kept per account in this browser;
  * - a status message announced to screen readers after actions.
  */
 interface WorkspaceData {
-  repository: ProspectRepository;
-  prospects: readonly Prospect[];
   fields: readonly FilterField[];
-  /** Summary of the whole workspace, independent of filters. */
-  overall: ProspectSummary;
+  /** True once the filter options have loaded (or failed to). */
+  fieldsReady: boolean;
+  fieldsError: string | null;
   search: ProspectSearchController;
   savedSearches: SavedSearch[];
-  setSavedSearches: Dispatch<SetStateAction<SavedSearch[]>>;
   lists: ProspectList[];
-  setLists: Dispatch<SetStateAction<ProspectList[]>>;
+  /** True once saved searches and lists have loaded. */
+  hydrated: boolean;
+  saveSearch: (name: string, filters: ProspectFilters) => Promise<void>;
+  deleteSavedSearch: (id: string) => Promise<void>;
+  createList: (name: string, prospects: readonly Prospect[]) => Promise<void>;
+  deleteList: (id: string) => Promise<void>;
   enrichment: EnrichmentOptions;
   setEnrichment: Dispatch<SetStateAction<EnrichmentOptions>>;
-  /** False until the browser's stored values have been applied. */
-  hydrated: boolean;
+  /** The signed-in user's role (ADMIN, AUDITOR or MEMBER). */
+  role: string;
   status: string;
   announce: (message: string) => void;
 }
 
 const WorkspaceDataContext = createContext<WorkspaceData | null>(null);
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isSavedSearchList(value: unknown): value is SavedSearch[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (item) =>
-        isRecord(item) &&
-        typeof item.id === "string" &&
-        typeof item.name === "string" &&
-        typeof item.createdAt === "string" &&
-        isProspectFilters(item.filters),
-    )
-  );
-}
-
-function isProspectListList(value: unknown): value is ProspectList[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (item) =>
-        isRecord(item) &&
-        typeof item.id === "string" &&
-        typeof item.name === "string" &&
-        typeof item.createdAt === "string" &&
-        Array.isArray(item.prospectIds) &&
-        item.prospectIds.every((id) => typeof id === "string"),
-    )
-  );
-}
-
 function isEnrichmentOptions(value: unknown): value is EnrichmentOptions {
-  return isRecord(value) && (Object.keys(DEFAULT_ENRICHMENT) as (keyof EnrichmentOptions)[]).every((key) => typeof value[key] === "boolean");
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (Object.keys(DEFAULT_ENRICHMENT) as (keyof EnrichmentOptions)[]).every((key) => typeof (value as Record<string, unknown>)[key] === "boolean")
+  );
+}
+
+function toSavedSearch(record: SavedSearchRecord): SavedSearch {
+  const filters = isProspectFilters(record.ui_state) ? record.ui_state : { ...EMPTY_FILTERS, query: record.natural_query ?? "" };
+  return { id: String(record.id), name: record.name, createdAt: record.created_at, filters };
+}
+
+function toProspectList(record: ProspectListRecord<Prospect>): ProspectList {
+  return { id: String(record.id), name: record.name, createdAt: record.created_at, prospects: record.prospects };
 }
 
 interface WorkspaceDataProviderProps {
-  /** Separates one account's browser-stored data from another's on a shared machine. */
+  /** Separates one account's browser-stored preferences from another's on a shared machine. */
   storageKey: string;
+  role: string;
   children: ReactNode;
 }
 
-export function WorkspaceDataProvider({ storageKey, children }: WorkspaceDataProviderProps) {
-  const repository = sampleProspectRepository;
-  const prospects = useMemo(() => repository.all(), [repository]);
-  const fields = useMemo(() => buildFilterFields(prospects), [prospects]);
-  const overall = useMemo(() => summariseProspects(prospects), [prospects]);
-  const search = useProspectSearch(prospects);
+export function WorkspaceDataProvider({ storageKey, role, children }: WorkspaceDataProviderProps) {
+  const [facets, setFacets] = useState<Facets>({});
+  const [fieldsReady, setFieldsReady] = useState(false);
+  const [fieldsError, setFieldsError] = useState<string | null>(null);
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [lists, setLists] = useState<ProspectList[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [status, setStatus] = useState("");
 
-  const prefix = `tentact:${storageKey}`;
-  const [savedSearches, setSavedSearches, searchesHydrated] = useLocalStorageState<SavedSearch[]>(
-    `${prefix}:saved-searches`,
-    [],
-    isSavedSearchList,
-  );
-  const [lists, setLists, listsHydrated] = useLocalStorageState<ProspectList[]>(`${prefix}:lists`, [], isProspectListList);
-  const [enrichment, setEnrichment, enrichmentHydrated] = useLocalStorageState<EnrichmentOptions>(
-    `${prefix}:enrichment`,
+  const countries = useMemo(() => createCountryNames(facets["new_combined_data.COUNTRY_CODE_PER"]?.values ?? []), [facets]);
+  const fields = useMemo(() => buildFilterFields(facets, countries), [facets, countries]);
+  const search = useProspectSearch(countries);
+
+  const [enrichment, setEnrichment] = useLocalStorageState<EnrichmentOptions>(
+    `tentact:${storageKey}:enrichment`,
     DEFAULT_ENRICHMENT,
     isEnrichmentOptions,
   );
 
+  useEffect(() => {
+    let cancelled = false;
+    dashboardApi
+      .columnValues(facetKeys())
+      .then((loaded) => {
+        if (!cancelled) setFacets(loaded);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setFieldsError(errorText(error, "Filter options couldn't be loaded."));
+      })
+      .finally(() => {
+        if (!cancelled) setFieldsReady(true);
+      });
+
+    Promise.all([dashboardApi.listSavedSearches(), dashboardApi.listLists<Prospect>()])
+      .then(([searches, savedLists]) => {
+        if (cancelled) return;
+        setSavedSearches(searches.map(toSavedSearch));
+        setLists(savedLists.map(toProspectList));
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setStatus(errorText(error, "Saved searches and lists couldn't be loaded."));
+      })
+      .finally(() => {
+        if (!cancelled) setHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saveSearch = useCallback(
+    async (name: string, filters: ProspectFilters) => {
+      const created = await dashboardApi.saveSearch({
+        name,
+        search_request: toSearchRequest(filters, 1, countries),
+        ui_state: filters as unknown as Record<string, unknown>,
+      });
+      setSavedSearches((current) => [{ id: String(created.id), name: created.name, createdAt: created.created_at, filters }, ...current]);
+    },
+    [countries],
+  );
+
+  const deleteSavedSearch = useCallback(async (id: string) => {
+    await dashboardApi.deleteSavedSearch(id);
+    setSavedSearches((current) => current.filter((item) => item.id !== id));
+  }, []);
+
+  const createList = useCallback(async (name: string, prospects: readonly Prospect[]) => {
+    const created = await dashboardApi.createList<Prospect>(name, prospects);
+    setLists((current) => [toProspectList(created), ...current]);
+  }, []);
+
+  const deleteList = useCallback(async (id: string) => {
+    await dashboardApi.deleteList(id);
+    setLists((current) => current.filter((item) => item.id !== id));
+  }, []);
+
   const value = useMemo<WorkspaceData>(
     () => ({
-      repository,
-      prospects,
       fields,
-      overall,
+      fieldsReady,
+      fieldsError,
       search,
       savedSearches,
-      setSavedSearches,
       lists,
-      setLists,
+      hydrated,
+      saveSearch,
+      deleteSavedSearch,
+      createList,
+      deleteList,
       enrichment,
       setEnrichment,
-      hydrated: searchesHydrated && listsHydrated && enrichmentHydrated,
+      role,
       status,
       announce: setStatus,
     }),
-    [
-      repository,
-      prospects,
-      fields,
-      overall,
-      search,
-      savedSearches,
-      setSavedSearches,
-      lists,
-      setLists,
-      enrichment,
-      setEnrichment,
-      searchesHydrated,
-      listsHydrated,
-      enrichmentHydrated,
-      status,
-    ],
+    [fields, fieldsReady, fieldsError, search, savedSearches, lists, hydrated, saveSearch, deleteSavedSearch, createList, deleteList, enrichment, setEnrichment, role, status],
   );
 
   return <WorkspaceDataContext.Provider value={value}>{children}</WorkspaceDataContext.Provider>;
@@ -151,9 +179,4 @@ export function useWorkspaceData(): WorkspaceData {
   const context = useContext(WorkspaceDataContext);
   if (!context) throw new Error("useWorkspaceData must be used inside WorkspaceDataProvider.");
   return context;
-}
-
-/** Unique enough for browser-local records; swap for server ids when a backend exists. */
-export function createLocalId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }

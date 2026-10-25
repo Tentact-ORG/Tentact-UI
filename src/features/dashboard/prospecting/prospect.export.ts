@@ -6,10 +6,20 @@ interface CsvColumn {
   value: (prospect: Prospect) => string | number | boolean;
 }
 
+const FORMULA_PREFIXES = new Set(["=", "+", "-", "@", "\t", "\r"]);
+
+/**
+ * Quotes a CSV cell and neutralises spreadsheet formula injection: values that
+ * start with =, +, -, @, tab or carriage return get a leading single quote,
+ * matching the server-side export.
+ */
 function csvCell(value: string | number | boolean): string {
-  const text = String(value);
+  let text = String(value);
+  if (text.length > 0 && FORMULA_PREFIXES.has(text[0])) text = `'${text}`;
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
+
+const yesNo = (value: boolean) => (value ? "Yes" : "No");
 
 /** Columns follow the enrichment options, so the export matches what the visitor asked for. */
 export function buildCsvColumns(options: EnrichmentOptions): CsvColumn[] {
@@ -23,15 +33,20 @@ export function buildCsvColumns(options: EnrichmentOptions): CsvColumn[] {
     { header: "Country", value: (p) => p.country },
   ];
 
-  if (options.verifiedEmail) columns.push({ header: "Verified email", value: (p) => (p.verifiedEmail ? "Yes" : "No") });
-  if (options.directDial) columns.push({ header: "Direct dial", value: (p) => (p.directDial ? "Yes" : "No") });
-  if (options.missingContactDetails) columns.push({ header: "Job function", value: (p) => p.jobFunction });
+  if (options.verifiedEmail) {
+    columns.push({ header: "Email", value: (p) => p.email ?? "" }, { header: "Verified email", value: (p) => yesNo(p.verifiedEmail) });
+  }
+  if (options.directDial) columns.push({ header: "Phone", value: (p) => p.phone ?? "" });
+  if (options.missingContactDetails) {
+    columns.push({ header: "Persona", value: (p) => p.jobFunction }, { header: "LinkedIn", value: (p) => p.linkedinUrl ?? "" });
+  }
   if (options.companyFirmographics) {
     columns.push(
       { header: "Industry", value: (p) => p.company.industry },
       { header: "Employees", value: (p) => p.company.employees },
       { header: "Revenue", value: (p) => p.company.revenue },
       { header: "Headquarters", value: (p) => p.company.headquarters },
+      { header: "Website", value: (p) => p.company.website ?? "" },
     );
   }
   if (options.technologies) columns.push({ header: "Technologies", value: (p) => p.company.technologies.join("; ") });
@@ -39,8 +54,7 @@ export function buildCsvColumns(options: EnrichmentOptions): CsvColumn[] {
     columns.push(
       { header: "Hiring", value: (p) => p.company.hiring.join("; ") },
       { header: "Funding", value: (p) => p.company.funding },
-      { header: "Buying intent", value: (p) => p.company.intent },
-      { header: "Days in role", value: (p) => (p.jobChangeDays === null ? "365+" : p.jobChangeDays) },
+      { header: "Days in role", value: (p) => (p.jobChangeDays === null ? "" : p.jobChangeDays) },
     );
   }
   columns.push({ header: "Sources", value: (p) => p.sources.join("; ") });
