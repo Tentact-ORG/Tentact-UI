@@ -1,0 +1,54 @@
+.root {
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+
+.art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Eyelids over the white of each eye: open (folded up) most of the time, closing briefly to blink. */
+.lid {
+  position: absolute;
+  top: 24.9%;
+  height: 3.3%;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  background: linear-gradient(#ffa232, #f68a1c);
+  box-shadow: inset 0 -1px 0 rgba(176, 82, 0, 0.6);
+  transform: scaleY(0);
+  transform-origin: 50% 0;
+  animation: blink 4.8s infinite;
+}
+
+.lidLeft {
+  left: 44.8%;
+  width: 8.1%;
+}
+
+.lidRight {
+  left: 56.5%;
+  width: 7.9%;
+}
+
+@keyframes blink {
+  0%,
+  90%,
+  96%,
+  100% {
+    transform: scaleY(0);
+  }
+  93% {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lid {
+    animation: none;
+  }
+}

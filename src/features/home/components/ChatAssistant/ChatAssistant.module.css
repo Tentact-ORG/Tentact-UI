@@ -14,19 +14,10 @@
 .launcher {
   position: relative;
   display: grid;
-  place-items: center;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  transition: transform 0.35s cubic-bezier(0.3, 1.5, 0.5, 1);
-}
-
-.launcher:hover {
-  transform: translateY(-3px) scale(1.06);
-}
-
-.launcher:active {
-  transform: scale(0.95);
+  place-items: end center;
+  width: 72px;
+  height: 92px;
+  border-radius: 24px;
 }
 
 .launcher:focus-visible {
@@ -34,16 +25,9 @@
   outline-offset: 4px;
 }
 
-/* A solid chat button. */
-.badge {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: var(--ink);
-  color: #fff;
-  box-shadow: 0 14px 30px -10px rgba(14, 14, 15, 0.45);
+/* Mivy stands in the corner as the launcher. */
+.launcherMivy {
+  filter: drop-shadow(0 10px 14px rgba(14, 14, 15, 0.28));
 }
 
 /* ---------- greeting bubble ---------- */
@@ -134,13 +118,8 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: var(--red);
-  color: #fff;
-  font-size: 18px;
-  font-weight: 600;
+  width: 44px;
+  height: 52px;
 }
 
 .headText {
@@ -343,8 +322,8 @@
   }
 
   .launcher {
-    width: 56px;
-    height: 56px;
+    width: 64px;
+    height: 84px;
   }
 }
 

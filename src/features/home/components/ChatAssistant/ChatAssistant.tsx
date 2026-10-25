@@ -6,6 +6,7 @@ import { SITE } from "@/config/site";
 import { cx } from "@/lib/cx";
 import { handleDemoLinkClick } from "../DemoBooking/DemoBooking";
 import styles from "./ChatAssistant.module.css";
+import { MivyCharacter } from "./MivyCharacter";
 
 const BOT_NAME = SITE.assistantName;
 
@@ -109,7 +110,7 @@ function ChatAssistantWidget() {
       <section id={panelId} className={cx(styles.panel, open && styles.panelOpen)} aria-label={`Chat with ${BOT_NAME}`} aria-hidden={!open} inert={!open}>
         <header className={styles.head}>
           <div className={styles.avatar}>
-            <span>{BOT_NAME.charAt(0)}</span>
+            <MivyCharacter height={50} />
           </div>
           <div className={styles.headText}>
             <p className={styles.name}>{BOT_NAME}</p>
@@ -194,11 +195,7 @@ function ChatAssistantWidget() {
         aria-controls={panelId}
         aria-label={open ? `Close the chat with ${BOT_NAME}` : `Chat with ${BOT_NAME}, ${SITE.name}'s assistant`}
       >
-        <span className={styles.badge}>
-          <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5v-8Z" fill="currentColor" />
-          </svg>
-        </span>
+        <MivyCharacter height={92} className={styles.launcherMivy} />
       </button>
     </div>
   );
