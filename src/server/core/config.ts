@@ -95,12 +95,47 @@ const settingsSchema = z
     ANTHROPIC_API_KEY: envOptionalStr,
     GEMINI_API_KEY: envOptionalStr,
 
+    // Azure OpenAI (Azure AI Foundry v1 endpoint, e.g. https://<resource>.services.ai.azure.com/openai/v1)
+    AZURE_OPENAI_ENDPOINT: envOptionalStr,
+    AZURE_OPENAI_API_KEY: envOptionalStr,
+    /** Deployment name, not the model name: the name chosen when the model was deployed. */
+    AZURE_OPENAI_DEPLOYMENT: envOptionalStr,
+    /** For reasoning deployments (gpt-5, o-series); leave unset for others. */
+    AZURE_OPENAI_REASONING_EFFORT: z.enum(["minimal", "low", "medium", "high"]).optional(),
+    /** Only sent when set: reasoning deployments accept nothing but the default. */
+    AZURE_OPENAI_TEMPERATURE: z
+      .string()
+      .optional()
+      .transform((raw, ctx) => {
+        if (raw === undefined || raw.trim() === "") return null;
+        const value = Number(raw);
+        if (!Number.isFinite(value)) {
+          ctx.addIssue({ code: "custom", message: `Invalid number: '${raw}'` });
+          return z.NEVER;
+        }
+        return value;
+      }),
+
     // CSV export settings
     EXPORT_MAX_ROWS: envInt(100000),
     EXPORT_EXPIRATION_HOURS: envInt(24),
     EXPORT_STORAGE_PATH: envStr("./exports_storage"),
   })
   .superRefine((cfg, ctx) => {
+    if (cfg.AZURE_OPENAI_ENDPOINT && !/^https:\/\/[^/]+\/openai\/v1\/?$/.test(cfg.AZURE_OPENAI_ENDPOINT)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["AZURE_OPENAI_ENDPOINT"],
+        message: "Expected the v1 endpoint, e.g. https://<resource>.services.ai.azure.com/openai/v1",
+      });
+    }
+    if (cfg.LLM_PROVIDER.toLowerCase() === "azure" && (!cfg.AZURE_OPENAI_ENDPOINT || !cfg.AZURE_OPENAI_API_KEY || !cfg.AZURE_OPENAI_DEPLOYMENT)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["LLM_PROVIDER"],
+        message: "LLM_PROVIDER=azure requires AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY and AZURE_OPENAI_DEPLOYMENT",
+      });
+    }
     if (cfg.APP_ENV === "production" && (cfg.JWT_SECRET_KEY === DEV_JWT_SECRET || cfg.JWT_SECRET_KEY.length < 32)) {
       ctx.addIssue({
         code: "custom",

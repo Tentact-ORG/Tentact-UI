@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { getSettings } from "../core/config";
 import { getLogger } from "../core/logger";
 
@@ -75,6 +76,8 @@ export class LLMAdapter {
         return this.generateAnthropic(systemPrompt, userPrompt, timeout);
       case "gemini":
         return this.generateGemini(systemPrompt, userPrompt, temp, timeout);
+      case "azure":
+        return this.generateAzure(systemPrompt, userPrompt, timeout);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
@@ -183,6 +186,54 @@ export class LLMAdapter {
       .map((block) => block.text)
       .join("");
     if (!text) throw new LLMProviderError("LLM provider 'anthropic' returned no text content");
+    return text;
+  }
+
+  /**
+   * Azure OpenAI through the official OpenAI SDK against the resource's v1
+   * endpoint, addressed by deployment name. Temperature is sent only when
+   * AZURE_OPENAI_TEMPERATURE is set, because reasoning deployments (gpt-5, o-series)
+   * reject anything but the default; they also require max_completion_tokens.
+   */
+  private async generateAzure(system: string, user: string, timeout: number): Promise<string> {
+    const s = getSettings();
+    const client = new OpenAI({
+      apiKey: requireKey("AZURE_OPENAI_API_KEY", s.AZURE_OPENAI_API_KEY),
+      baseURL: requireKey("AZURE_OPENAI_ENDPOINT", s.AZURE_OPENAI_ENDPOINT).replace(/\/+$/, ""),
+      timeout: timeout * 1000,
+    });
+    const deployment = requireKey("AZURE_OPENAI_DEPLOYMENT", s.AZURE_OPENAI_DEPLOYMENT);
+
+    let completion: OpenAI.Chat.Completions.ChatCompletion;
+    try {
+      completion = await client.chat.completions.create({
+        model: deployment,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 16000,
+        ...(s.AZURE_OPENAI_REASONING_EFFORT ? { reasoning_effort: s.AZURE_OPENAI_REASONING_EFFORT } : {}),
+        ...(s.AZURE_OPENAI_TEMPERATURE !== null ? { temperature: s.AZURE_OPENAI_TEMPERATURE } : {}),
+      });
+    } catch (err) {
+      if (err instanceof OpenAI.APIConnectionTimeoutError) {
+        throw new LLMProviderError(`LLM provider 'azure' request timed out after ${timeout}s`);
+      }
+      if (err instanceof OpenAI.APIError) {
+        logger.warn(`LLM provider 'azure' returned HTTP ${err.status ?? "n/a"}: ${err.message.slice(0, 500)}`);
+        throw new LLMProviderError(`LLM provider 'azure' request failed with HTTP ${err.status ?? "error"}`);
+      }
+      throw err;
+    }
+
+    const choice = completion.choices[0];
+    if (choice?.finish_reason === "content_filter") {
+      throw new LLMProviderError("LLM provider 'azure' blocked the response (content filter)");
+    }
+    const text = choice?.message.content ?? "";
+    if (!text) throw new LLMProviderError(`LLM provider 'azure' returned no content (finish reason: ${choice?.finish_reason ?? "none"})`);
     return text;
   }
 
