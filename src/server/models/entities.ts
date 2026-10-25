@@ -5,6 +5,7 @@ import type {
   DiscoveredValuesTable,
   ExportJobsTable,
   OrganizationsTable,
+  ProspectListsTable,
   RowCodec,
   SavedSearchesTable,
   TableRelationshipsTable,
@@ -118,6 +119,17 @@ export interface SavedSearch {
   natural_query: string | null;
   structured_icp: unknown;
   intermediate_rep: unknown;
+  ui_state: unknown;
+  created_at: Date;
+}
+
+export interface ProspectList {
+  id: number;
+  org_id: number;
+  user_id: number;
+  name: string;
+  items: unknown[];
+  item_count: number;
   created_at: Date;
 }
 
@@ -222,6 +234,17 @@ export const toSavedSearch = (c: RowCodec, r: Selectable<SavedSearchesTable>): S
   natural_query: r.natural_query,
   structured_icp: c.readJson<unknown>(r.structured_icp),
   intermediate_rep: c.readJson<unknown>(r.intermediate_rep),
+  ui_state: r.ui_state === null || r.ui_state === undefined ? null : c.readJson<unknown>(r.ui_state),
+  created_at: c.readDate(r.created_at),
+});
+
+export const toProspectList = (c: RowCodec, r: Selectable<ProspectListsTable>): ProspectList => ({
+  id: r.id,
+  org_id: r.org_id,
+  user_id: r.user_id,
+  name: r.name,
+  items: c.readJson<unknown[]>(r.items),
+  item_count: r.item_count,
   created_at: c.readDate(r.created_at),
 });
 

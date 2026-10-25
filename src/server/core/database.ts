@@ -99,6 +99,19 @@ export interface SavedSearchesTable {
   natural_query: string | null;
   structured_icp: DbJson;
   intermediate_rep: DbJson;
+  /** Client filter state for restoring the search in the dashboard (added after the Python service). */
+  ui_state: DbJson | null;
+  created_at: DbDate;
+}
+
+export interface ProspectListsTable {
+  id: Generated<number>;
+  org_id: number;
+  user_id: number;
+  name: string;
+  /** Snapshot of the prospects in the list, as shown in the dashboard. */
+  items: DbJson;
+  item_count: number;
   created_at: DbDate;
 }
 
@@ -140,6 +153,7 @@ export interface Database {
   saved_searches: SavedSearchesTable;
   export_jobs: ExportJobsTable;
   audit_events: AuditEventsTable;
+  prospect_lists: ProspectListsTable;
 }
 
 /** Tables in dependency order (parents first). */
@@ -153,6 +167,7 @@ export const TABLE_NAMES = [
   "saved_searches",
   "export_jobs",
   "audit_events",
+  "prospect_lists",
 ] as const satisfies readonly (keyof Database)[];
 
 export type DialectName = "sqlite" | "postgres";
@@ -463,5 +478,39 @@ export async function migrateDatabase(): Promise<void> {
     if (unique) builder = builder.unique();
     await builder.execute();
   }
+  await db.schema
+    .createTable("prospect_lists")
+    .ifNotExists()
+    .addColumn("id", id, (c) => c.primaryKey())
+    .addColumn("org_id", "integer", (c) => c.notNull().references("organizations.id").onDelete("cascade"))
+    .addColumn("user_id", "integer", (c) => c.notNull().references("users.id").onDelete("cascade"))
+    .addColumn("name", "varchar(255)", (c) => c.notNull())
+    .addColumn("items", json, (c) => c.notNull())
+    .addColumn("item_count", "integer", (c) => c.notNull())
+    .addColumn("created_at", ts, (c) => c.notNull())
+    .execute();
+  for (const column of ["org_id", "user_id"]) {
+    await db.schema.createIndex(`ix_prospect_lists_${column}`).ifNotExists().on("prospect_lists").column(column).execute();
+  }
+
+  // Columns added after the original schema; databases created by the Python service gain them here.
+  await addColumnIfMissing("saved_searches", "ui_state", json);
+
   logger.info("Application database schema initialized.");
+}
+
+/** Adds a nullable column to an existing table unless it is already there. */
+async function addColumnIfMissing(table: keyof Database, column: string, type: ReturnType<typeof sql>): Promise<void> {
+  const db = getDb();
+  const exists =
+    getDialect() === "postgres"
+      ? (
+          await sql<{ n: number }>`SELECT count(*)::int AS n FROM information_schema.columns
+            WHERE table_schema = current_schema() AND table_name = ${table} AND column_name = ${column}`.execute(db)
+        ).rows[0].n > 0
+      : (await sql<{ name: string }>`SELECT name FROM pragma_table_info(${table})`.execute(db)).rows.some((r) => r.name === column);
+  if (!exists) {
+    await db.schema.alterTable(table).addColumn(column, type).execute();
+    logger.info(`Added column ${table}.${column}.`);
+  }
 }

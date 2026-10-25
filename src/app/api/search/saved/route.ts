@@ -24,6 +24,7 @@ export const POST = route(async (request) => {
       natural_query: body.search_request.natural_query,
       structured_icp: codec.json(body.search_request.structured_icp ?? {}),
       intermediate_rep: codec.json(rep),
+      ui_state: body.ui_state === null ? null : codec.json(body.ui_state),
       created_at: codec.date(new Date()),
     })
     .returningAll()
@@ -51,6 +52,7 @@ export const GET = route(async (request) => {
         description: s.description,
         natural_query: s.natural_query,
         structured_icp: s.structured_icp,
+        ui_state: s.ui_state,
         created_at: s.created_at,
       };
     }),

@@ -11,6 +11,7 @@ export const FilterOperator = {
   BETWEEN: "between",
   CONTAINS: "contains",
   HAS: "has", // ClickHouse array membership: has(technologies, 'React')
+  NOT_EMPTY: "not_empty", // the column holds a value (e.g. a phone number or LinkedIn URL)
 } as const;
 export type FilterOperator = (typeof FilterOperator)[keyof typeof FilterOperator];
 
@@ -21,7 +22,7 @@ const textList = z.array(shortText).max(MAX_LIST_ITEMS);
 
 export const structuredFilterSchema = z.object({
   field: z.string().max(200),
-  operator: z.enum(["eq", "in", "gte", "lte", "between", "contains", "has"]),
+  operator: z.enum(["eq", "in", "gte", "lte", "between", "contains", "has", "not_empty"]),
   value: z.unknown(),
 });
 export type StructuredFilter = z.infer<typeof structuredFilterSchema>;
@@ -98,10 +99,16 @@ export interface SearchResultResponse {
   diagnostic: SearchDiagnostic | null;
 }
 
+/** Opaque client state saved with a search (the dashboard's filter selection), bounded in size. */
+const uiStateSchema = z
+  .record(z.string().max(100), z.unknown())
+  .refine((value) => JSON.stringify(value).length <= 20_000, "ui_state must be at most 20,000 characters of JSON");
+
 export const saveSearchRequestSchema = z.object({
   name: z.string().trim().min(1).max(255),
   description: z.string().max(2000).nullable().default(null),
   search_request: searchRequestSchema,
+  ui_state: uiStateSchema.nullable().default(null),
 });
 
 export interface DiscoveredFilterOptions {
