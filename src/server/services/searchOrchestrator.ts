@@ -230,6 +230,15 @@ class SearchOrchestrationWorkflow {
         continue;
       }
 
+      // Every filter the user applied must be in the query: checked here, not left to the models.
+      const missing = missingStructuredFilters(rep.filters, genOutput.clickhouse_sql);
+      if (missing.length > 0) {
+        logger.warn(`[SEARCH ORCHESTRATOR] Applied filters missing from the query: ${missing.join("; ")}`);
+        repairAttempts += 1;
+        lastErrorContext = `The query must apply every structured filter the user selected, with these exact values. Missing: ${missing.join("; ")}.`;
+        continue;
+      }
+
       // After the security review: the dashboard lists one kind of entity: a contact search must return people, not companies.
       const mismatch = entityMismatch(rep, genOutput);
       if (mismatch) {
@@ -349,6 +358,30 @@ class SearchOrchestrationWorkflow {
       diagnostic,
     };
   }
+}
+
+/**
+ * The exact column filters a query fails to apply: each filter's column must be
+ * referenced, and each of its text values must appear in one of the query's
+ * string literals (case-insensitive, so `ilike(col, '%vp sales%')` counts for
+ * "VP Sales"). Numeric and boolean values are covered by the column check.
+ */
+export function missingStructuredFilters(filters: readonly StructuredFilter[], sql: string): string[] {
+  const literals = [...sql.matchAll(/'((?:[^']|'')*)'/g)].map((m) => m[1].replace(/''/g, "'").toLowerCase());
+  const missing: string[] = [];
+  // Only exact column filters (table.column, as the dashboard sends) are checked; ICP hints such as
+  // industry "Fintech" are meanings the generator maps onto real values.
+  for (const filter of filters.filter((f) => f.field.includes("."))) {
+    const column = filter.field.split(".").pop() ?? filter.field;
+    if (!new RegExp(`\\b${column.replace(/[^A-Za-z0-9_]/g, "")}\\b`, "i").test(sql)) {
+      missing.push(`${column} (${filter.operator} ${JSON.stringify(filter.value)})`);
+      continue;
+    }
+    const values = (Array.isArray(filter.value) ? filter.value : [filter.value]).filter((v): v is string => typeof v === "string" && v.trim() !== "");
+    const absent = values.filter((v) => !literals.some((literal) => literal.includes(v.trim().toLowerCase())));
+    if (absent.length > 0) missing.push(`${column} ${filter.operator} ${absent.map((v) => `'${v}'`).join(", ")}`);
+  }
+  return missing;
 }
 
 /**

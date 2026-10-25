@@ -6,7 +6,7 @@ import { searchRequestSchema } from "@/server/schemas/search";
 import { analyzeSql, rewriteOuterLimit } from "@/server/services/clickhouseSql";
 import { chService } from "@/server/services/clickhouseClient";
 import { applyExportLimit, exportService } from "@/server/services/exportService";
-import { entityMismatch, searchOrchestrator } from "@/server/services/searchOrchestrator";
+import { entityMismatch, missingStructuredFilters, searchOrchestrator } from "@/server/services/searchOrchestrator";
 import { searchPlanCache } from "@/server/services/searchPlanCache";
 import { sqlGeneratorAgent } from "@/server/services/sqlGeneratorAgent";
 import { sqlReviewerAgent } from "@/server/services/sqlReviewerAgent";
@@ -114,5 +114,29 @@ describe("result entity check", () => {
     expect(entityMismatch(contactRep, base as Parameters<typeof entityMismatch>[1])).toBeNull();
     const companies = { ...base, search_target: "company", clickhouse_sql: "SELECT RBID_ORG AS company_id, COMPANY_NAME_ORG FROM new_company_data" };
     expect(entityMismatch(contactRep, companies as Parameters<typeof entityMismatch>[1])).toMatch(/searching for contacts/);
+  });
+});
+
+describe("applied filter check", () => {
+  const filters = [
+    { field: "new_combined_data.JOB_LEVEL_PER", operator: "in" as const, value: ["VP", "Director"] },
+    { field: "new_combined_data.JOB_TITLE_PER", operator: "contains" as const, value: ["VP Sales", "Vice President of Sales"] },
+    { field: "new_combined_data.LINKEDIN_URL_PER", operator: "not_empty" as const, value: true },
+    { field: "industry", operator: "in" as const, value: ["Fintech"] }, // an ICP hint, not checked literally
+  ];
+
+  it("passes a query that applies every filter", () => {
+    const sql = `SELECT RBID_PER AS contact_id FROM new_combined_data WHERE JOB_LEVEL_PER IN ('VP','Director')
+      AND (ilike(JOB_TITLE_PER, '%vp sales%') OR ilike(JOB_TITLE_PER, '%Vice President of Sales%')) AND notEmpty(LINKEDIN_URL_PER)`;
+    expect(missingStructuredFilters(filters, sql)).toEqual([]);
+  });
+
+  it("names each filter or value the query leaves out", () => {
+    const sql = "SELECT RBID_PER AS contact_id FROM new_combined_data WHERE JOB_LEVEL_PER IN ('VP') AND ilike(JOB_TITLE_PER, '%VP Sales%')";
+    expect(missingStructuredFilters(filters, sql)).toEqual([
+      "JOB_LEVEL_PER in 'Director'",
+      "JOB_TITLE_PER contains 'Vice President of Sales'",
+      'LINKEDIN_URL_PER (not_empty true)',
+    ]);
   });
 });
