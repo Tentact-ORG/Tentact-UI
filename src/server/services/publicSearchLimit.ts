@@ -113,7 +113,7 @@ export function createSupabasePool(url: string): pg.Pool {
     connectionString: url.replace(/[?&]sslmode=[^&]*/, ""),
     // Supabase requires TLS; with its CA certificate the server is also verified.
     ssl: local ? false : ca ? { ca, rejectUnauthorized: true } : { rejectUnauthorized: false },
-    max: 4,
+    max: Math.max(1, Math.min(4, settings.DATABASE_POOL_MAX)),
     connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 30_000,
   });

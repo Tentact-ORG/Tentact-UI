@@ -63,6 +63,11 @@ const settingsSchema = z
 
     // Application database: `sqlite+aiosqlite:///./file.db` or `postgresql+asyncpg://...`
     DATABASE_URL: envStr("sqlite+aiosqlite:///./leadgen_app.db"),
+    /**
+     * Most Postgres connections one server process keeps open. Serverless hosts (Vercel) run many
+     * processes at once, so keep it small there (2) and use the database's transaction pooler.
+     */
+    DATABASE_POOL_MAX: envInt(10),
 
     // ClickHouse lead warehouse
     CLICKHOUSE_MODE: z.enum(["client", "mock"]).default("client"),

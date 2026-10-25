@@ -17,6 +17,7 @@ All runtime configuration is read from environment variables. Next.js loads a lo
 | `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). |
 | `PORT` | `3000` | HTTP port of the Next.js server (`next start` / standalone `server.js`). |
 | `DATABASE_URL` | `sqlite+aiosqlite:///./leadgen_app.db` | Application database. SQLite: `sqlite:///./file.db` (the `+aiosqlite` form is accepted). PostgreSQL: `postgresql://user:pass@host:5432/dbname` (the `+asyncpg` form is accepted). |
+| `DATABASE_POOL_MAX` | `10` | Most Postgres connections one server process keeps open (also caps the public-search pool at 4). On Vercel or other serverless hosts set it to `2` and use the database's **transaction pooler** (Supabase: port 6543), since many processes run at once. |
 | `CLICKHOUSE_MODE` | `client` | `client` for a network ClickHouse server, `mock` for the offline synthetic dataset. |
 | `CLICKHOUSE_HOST` | `localhost` | ClickHouse server hostname. |
 | `CLICKHOUSE_PORT` | `8123` | ClickHouse HTTP(S) interface port. |

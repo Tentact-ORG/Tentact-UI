@@ -333,7 +333,13 @@ function createHandle(): DatabaseHandle {
   }
   // TIMESTAMP WITHOUT TIME ZONE columns (as created by SQLAlchemy) hold naive UTC values.
   pg.types.setTypeParser(pg.types.builtins.TIMESTAMP, (value: string) => parseTimestamp(value));
-  const pool = new pg.Pool({ connectionString: target, max: 10 });
+  const pool = new pg.Pool({
+    connectionString: target,
+    max: Math.max(1, getSettings().DATABASE_POOL_MAX),
+    // Hand idle connections back quickly, and fail fast instead of waiting forever for a free one.
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 10_000,
+  });
   return { db: new Kysely<Database>({ dialect: new PostgresDialect({ pool }) }), dialect, codec: postgresCodec };
 }
 
