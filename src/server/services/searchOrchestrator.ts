@@ -230,6 +230,15 @@ class SearchOrchestrationWorkflow {
         continue;
       }
 
+      // After the security review: the dashboard lists one kind of entity: a contact search must return people, not companies.
+      const mismatch = entityMismatch(rep, genOutput);
+      if (mismatch) {
+        logger.warn(`[SEARCH ORCHESTRATOR] Wrong result entity: ${mismatch}`);
+        repairAttempts += 1;
+        lastErrorContext = mismatch;
+        continue;
+      }
+
       // 3. Deterministic SQL validation of the exact text that will run (the requested page applied).
       let pageSql: string;
       try {
@@ -340,6 +349,20 @@ class SearchOrchestrationWorkflow {
       diagnostic,
     };
   }
+}
+
+/**
+ * Why the generated query doesn't return the requested kind of entity, or null.
+ * Each row must carry the entity's identifier (contact_id / RBID_PER for contacts,
+ * company_id / RBID_ORG for companies), as the prompt requires.
+ */
+export function entityMismatch(rep: IntermediateSearchRepresentation, output: SQLGeneratorOutput): string | null {
+  const wantsContacts = rep.search_target === "contact";
+  const identifier = wantsContacts ? /\b(contact_id|RBID_PER)\b/i : /\b(company_id|RBID_ORG)\b/i;
+  if (output.search_target.toLowerCase() === rep.search_target && identifier.test(output.clickhouse_sql)) return null;
+  return wantsContacts
+    ? "The user is searching for contacts (people), but the query returns companies. Return the people who match: query new_combined_data, select RBID_PER AS contact_id, and apply company criteria (industry, size, location) to the contacts' company columns."
+    : "The user is searching for companies, but the query does not return companies. Query new_company_data and select RBID_ORG AS company_id.";
 }
 
 export const searchOrchestrator = new SearchOrchestrationWorkflow();

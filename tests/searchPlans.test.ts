@@ -6,7 +6,7 @@ import { searchRequestSchema } from "@/server/schemas/search";
 import { analyzeSql, rewriteOuterLimit } from "@/server/services/clickhouseSql";
 import { chService } from "@/server/services/clickhouseClient";
 import { applyExportLimit, exportService } from "@/server/services/exportService";
-import { searchOrchestrator } from "@/server/services/searchOrchestrator";
+import { entityMismatch, searchOrchestrator } from "@/server/services/searchOrchestrator";
 import { searchPlanCache } from "@/server/services/searchPlanCache";
 import { sqlGeneratorAgent } from "@/server/services/sqlGeneratorAgent";
 import { sqlReviewerAgent } from "@/server/services/sqlReviewerAgent";
@@ -103,5 +103,16 @@ describe("approved search plans", () => {
     expect(result.diagnostic?.repair_attempts).toBe(1);
     expect(generate.mock.calls[0][2]).toBeNull();
     expect(generate.mock.calls[1][2]).toContain("Missing criterion: marketing roles");
+  });
+});
+
+describe("result entity check", () => {
+  const base = { search_target: "contact", clickhouse_sql: "SELECT RBID_PER AS contact_id FROM new_combined_data", count_sql: "", parameters: {}, target_tables: [], required_joins: [], selected_fields: [], assumptions: [], unresolved_ambiguities: [], notes: null };
+  const contactRep = { search_target: "contact" } as Parameters<typeof entityMismatch>[0];
+
+  it("accepts people for a contact search and rejects company rows", () => {
+    expect(entityMismatch(contactRep, base as Parameters<typeof entityMismatch>[1])).toBeNull();
+    const companies = { ...base, search_target: "company", clickhouse_sql: "SELECT RBID_ORG AS company_id, COMPANY_NAME_ORG FROM new_company_data" };
+    expect(entityMismatch(contactRep, companies as Parameters<typeof entityMismatch>[1])).toMatch(/searching for contacts/);
   });
 });

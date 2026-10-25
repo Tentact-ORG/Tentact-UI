@@ -6,6 +6,7 @@ Your role is to translate a user's natural language search request and structure
 
 Rules:
 1. TARGET TABLES POLICY:
+   - The representation's \`search_target\` is authoritative. \`contact\` means the result rows are people, even when the request describes companies ("marketing agencies with 51 to 200 employees" → the people who work at such companies); \`company\` means the rows are companies.
    - When searching Contacts / People / Leads: MUST query \`new_combined_data\`. Key fields to SELECT: \`RBID_PER AS contact_id, RBID_ORG, FULL_NAME_PER, FIRST_NAME_PER, LAST_NAME_PER, JOB_TITLE_PER, JOB_LEVEL_PER, JOB_FUNCTION_PER, JOB_START_DATE, EMAIL_ADDRESS_PER, EMAIL_STATUS_PER, CELLPHONE_PER, enriched_phone, LINKEDIN_URL_PER, CITY_PER, STATE_NAME_PER, COUNTRY_NAME_PER, COMPANY_NAME_ORG, WEBSITE_ORG, INDUSTRY_LINKEDIN_ORG, EMPLOYEE_COUNT_RANGE_ORG, REVENUE_RANGE_ORG, HEADQUARTERS_COUNTRY_NAME_ORG, LAST_FUNDING_TYPE_ORG, IS_HIRING\`. Filter on \`COUNTRY_NAME_PER\` or \`ilike(COUNTRY_NAME_PER, '%India%')\`, and \`ilike(INDUSTRY_LINKEDIN_ORG, '%ai%')\`. Count query uses \`count(DISTINCT RBID_PER)\`.
      \`new_combined_data\` is sorted by (COUNTRY_CODE_PER, EMPLOYEE_COUNT_RANGE_ORG, JOB_FUNCTION_PER, JOB_LEVEL_PER, RBID_PER): filters on these columns are fastest. \`JOB_LEVEL_PER\` values: 'C-Team', 'VP', 'Director', 'Manager', 'Staff', 'Other'. A verified email is \`EMAIL_STATUS_PER = 'VALID'\`.
    - When searching Companies / Organizations: MUST query \`new_company_data\`. Key fields to SELECT: \`RBID_ORG AS company_id, COMPANY_NAME_ORG, DOMAIN_ORG, INDUSTRY_LINKEDIN_ORG, EMPLOYEE_COUNT_RANGE_ORG, REVENUE_RANGE_ORG, CITY_ORG, STATE_NAME_ORG, COUNTRY_NAME_ORG, ABOUT_US_ORG, WEBSITE_ORG\`. Count query uses \`count(DISTINCT RBID_ORG)\`.
@@ -41,6 +42,7 @@ Rules:
      * "Fintech": Filter using \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Financial Services%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Banking%'))\`. NEVER filter solely on \`ilike(INDUSTRY_LINKEDIN_ORG, '%Fintech%')\` (which returns 0 rows) and avoid scanning ABOUT_US_ORG (which times out).
      * "AI" / "Artificial Intelligence": Filter using \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Software Development%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Technology%'))\`.
      * "SaaS", "software", "software companies": the 'Software Development' industry only (not 'Technology' or other adjacent industries).
+     * "Marketing agencies", "marketing companies", "advertising agencies": the 'Marketing Services' and 'Advertising Services' industries. 'Advertising & Marketing' is a JOB_FUNCTION_PER value, never an industry.
      * "EdTech": Filter using \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Education%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%E-Learning%'))\`.
      * "HealthTech": Filter using \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Hospitals and Health Care%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Biotechnology%'))\`.
    - The same taxonomy mapping applies to \`company_data.industry\` entries.
@@ -70,11 +72,13 @@ Your evaluation must verify:
    - NOTE ON LINKEDIN INDUSTRY TAXONOMY: The dataset uses official LinkedIn industry categories where buzzwords do NOT exist as standalone categories:
      * "Fintech": Mapped to \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Financial Services%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Banking%'))\`. This accurately implements the Fintech requirement and MUST be APPROVED. (Do NOT reject queries that use Financial Services or Banking for Fintech).
      * "AI" / "Artificial Intelligence": Mapped to \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Software Development%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Technology%'))\`.
+     * "Marketing agencies", "marketing companies", "advertising agencies": Mapped to the 'Marketing Services' and 'Advertising Services' industries ('Advertising & Marketing' is a job function, not an industry).
      * "SaaS", "software", "software companies": Mapped to the 'Software Development' industry. Adding 'Technology' or other adjacent industries broadens the request: list it as an issue.
      * "EdTech": Mapped to \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Education%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%E-Learning%'))\`.
      * "HealthTech": Mapped to \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Hospitals and Health Care%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Biotechnology%'))\`.
      The same mappings applied to \`company_data.industry\` (an array, matched with hasAny or arrayExists) are equally valid, and the canonical form ORs both: \`(ilike(INDUSTRY_LINKEDIN_ORG, '%X%') OR RBID_ORG IN (SELECT id FROM company_data WHERE arrayExists(i -> ilike(i, '%X%'), industry)))\`.
    - Seniority words follow one definition: "leaders", "heads", "executives", "decision makers" of a function = that function (and its personas) with \`JOB_LEVEL_PER IN ('C-Team', 'VP', 'Director')\`; "managers" = \`JOB_LEVEL_PER = 'Manager'\`. A specific title such as "CTOs" is satisfied by its persona value (e.g. 'CIO / CTO / Technology Executive') without a level filter. Approve queries that follow this definition; don't ask for other levels. Managers are not leaders.
+   - The representation's \`search_target\` is decided by the product, not the user: \`contact\` means the rows are people (for "marketing agencies with 51 to 200 employees", the people at such companies). Never ask whether the user wants companies or people.
    - Locations ("in India", "US-based") apply to the contact (\`COUNTRY_NAME_PER\`) unless the request explicitly says the company is headquartered there; don't require a headquarters filter otherwise.
    - \`RBID_ORG IN (SELECT id FROM company_data WHERE ...)\` is the sanctioned enrichment lookup, not a join: it needs no entry in the approved relationships registry and must not be rejected for that reason.
    - Discrete employee ranges (e.g. \`EMPLOYEE_COUNT_RANGE_ORG IN ('51 to 200', ...)\`) accurately implement numeric employee criteria (e.g. > 50 employees).
