@@ -53,6 +53,14 @@ All runtime configuration is read from environment variables. Next.js loads a lo
 | `CREDITS_ENABLED` | `true` | Mask contacts' emails and phone numbers in search results and charge credits to reveal or export them (see [Credits](credits.md)). `false` shows them in full and charges nothing. |
 | `CREDITS_PER_CONTACT` | `1` | Credits per newly revealed contact. A contact is charged once per workspace. |
 | `CREDITS_OPERATOR_EMAILS` | *(empty)* | Comma-separated emails of platform operators who approve top-up requests and grant credits to any workspace. |
+| `SUPABASE_DB_URL` | *(empty)* | Supabase Postgres (Session pooler) connection string for the landing page search limit. Unset turns the search off (see [Landing page search](public_search.md)). |
+| `SUPABASE_DB_CA_PATH` | *(empty)* | Path to Supabase's CA certificate; when set, the server certificate is verified. |
+| `PUBLIC_SEARCH_LIMIT` | `3` | Searches per visitor IP address per window. |
+| `PUBLIC_SEARCH_WINDOW_HOURS` | `24` | Length of a visitor's window, from their first search. |
+| `PUBLIC_SEARCH_IP_SECRET` | `JWT_SECRET_KEY` | Keys the stored IP address hashes. Changing it resets every visitor's count. |
+| `PUBLIC_SEARCH_HOURLY_CAP` | `120` | Searches per hour for all visitors together, per server. |
+| `TRUSTED_PROXY_HOPS` | `1` | Proxies in front of the app that append to `X-Forwarded-For`; the address that many entries from the end is the visitor's. |
+| `TRUSTED_CLIENT_IP_HEADER` | *(empty)* | A header the edge proxy sets to the client address (e.g. `CF-Connecting-IP`); used instead of `X-Forwarded-For`. |
 | `EXPORT_MAX_ROWS` | `100000` | Maximum row cap for CSV export jobs. |
 | `EXPORT_EXPIRATION_HOURS` | `24` | Retention period before export files are deleted. |
 | `EXPORT_STORAGE_PATH` | `./exports_storage` | Private directory for generated CSV files (files are created with mode `0600`). |

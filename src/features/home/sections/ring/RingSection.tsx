@@ -8,7 +8,7 @@ import { useScene } from "@/hooks/useScene";
 import { cx } from "@/lib/cx";
 import { PILL_AVATARS, RING_CARDS, RING_CORNERS, TYPED_PROMPTS, type RingCard, type RingCardTone } from "./ring.data";
 import { RingScene } from "./ring.scene";
-import { TypedPrompt } from "./TypedPrompt";
+import { ProspectSearch } from "./ProspectSearch";
 import styles from "./RingSection.module.css";
 
 const TONE_CLASS: Record<RingCardTone, string | undefined> = {
@@ -95,7 +95,7 @@ export function RingSection() {
             <br />
             <em>Our AI builds it.</em>
           </h2>
-          <TypedPrompt prompts={TYPED_PROMPTS} />
+          <ProspectSearch examples={TYPED_PROMPTS} />
         </Reveal>
       </div>
     </section>

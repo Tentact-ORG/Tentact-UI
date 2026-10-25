@@ -187,6 +187,10 @@
   animation: blink 1.4s infinite;
 }
 
+@keyframes blink {
+  50% { opacity: 0.25; }
+}
+
 .avatars {
   display: flex;
 }
@@ -206,28 +210,6 @@
 
 .avatars b:first-child {
   margin-left: 0;
-}
-
-.typing {
-  margin-top: 16px;
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--muted);
-  min-height: 20px;
-}
-
-.caret {
-  display: inline-block;
-  width: 7px;
-  height: 14px;
-  background: var(--red);
-  vertical-align: -2px;
-  margin-left: 2px;
-  animation: blink 1s steps(1) infinite;
-}
-
-@keyframes blink {
-  50% { opacity: 0.25; }
 }
 
 /* ---------- phones ---------- */

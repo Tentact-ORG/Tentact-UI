@@ -138,6 +138,22 @@ const settingsSchema = z
     EXPORT_MAX_ROWS: envInt(100000),
     EXPORT_EXPIRATION_HOURS: envInt(24),
     EXPORT_STORAGE_PATH: envStr("./exports_storage"),
+
+    // Landing page search for signed-out visitors, limited per IP address in Supabase Postgres.
+    /** Supabase Postgres connection string (Session pooler URL); without it the landing page search is off. */
+    SUPABASE_DB_URL: envOptionalStr,
+    /** PEM CA certificate path for verifying Supabase's TLS certificate; unset encrypts without verifying. */
+    SUPABASE_DB_CA_PATH: envOptionalStr,
+    PUBLIC_SEARCH_LIMIT: envInt(3),
+    PUBLIC_SEARCH_WINDOW_HOURS: envInt(24),
+    /** Keys the IP address hashes; defaults to JWT_SECRET_KEY. Changing it starts every visitor's count afresh. */
+    PUBLIC_SEARCH_IP_SECRET: envOptionalStr,
+    /** All visitors together, per hour per server: bounds model and warehouse cost. */
+    PUBLIC_SEARCH_HOURLY_CAP: envInt(120),
+    /** Proxies in front of the app that append to X-Forwarded-For (1 for Vercel or a single load balancer). */
+    TRUSTED_PROXY_HOPS: envInt(1),
+    /** A header your edge proxy sets to the client address and clients can't (e.g. CF-Connecting-IP); overrides X-Forwarded-For. */
+    TRUSTED_CLIENT_IP_HEADER: envOptionalStr,
   })
   .superRefine((cfg, ctx) => {
     if (cfg.AZURE_OPENAI_ENDPOINT && !/^https:\/\/[^/]+\/openai\/v1\/?$/.test(cfg.AZURE_OPENAI_ENDPOINT)) {

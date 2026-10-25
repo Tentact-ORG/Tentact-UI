@@ -24,6 +24,8 @@ log live in an application database (SQLite or PostgreSQL).
 | `npm run verify-azure`           | Check the Azure OpenAI endpoint, key, deployment and quota |
 | `npm run seed-clickhouse`        | Load the synthetic dataset into a local ClickHouse    |
 | `npm run generate-data`          | Regenerate `database/synthetic_seed_data.json`        |
+| `npm run migrate-supabase`       | Apply `supabase/migrations` to `SUPABASE_DB_URL`      |
+| `npm run verify-public-search-limit` | Check the landing page search limit holds under concurrency |
 
 `dev` and `build` use webpack (`--webpack`) on purpose. Turbopack ignores `adjustFontFallback: false`
 in `next/font` and always inserts an Arial fallback face. That changes how glyphs Geist doesn't have
@@ -44,6 +46,7 @@ reference is [docs/environment_variables.md](docs/environment_variables.md). The
 | `LLM_PROVIDER` and `AZURE_OPENAI_*`        | The model behind the SQL agents; see [docs/llm_configuration.md](docs/llm_configuration.md). |
 | `LLM_REVIEWER_PROVIDER`, `AZURE_ANTHROPIC_*` | Optional: run the SQL reviewer on Claude (Azure AI Foundry) for an independent check.     |
 | `CREDITS_*`                                | Pay-to-reveal contact details and the top-up operators; see [docs/credits.md](docs/credits.md). |
+| `SUPABASE_DB_URL`, `PUBLIC_SEARCH_*`, `TRUSTED_*` | The landing page search and its 3-per-IP daily limit; see [docs/public_search.md](docs/public_search.md). |
 
 First run: create the first administrator with `npm run bootstrap-admin`, then sign in at `/login`.
 An existing database (including one created by the earlier Python service) is upgraded on the
@@ -55,7 +58,7 @@ Administrators add further users in the admin console.
 
 | Route                                             | Rendering | Purpose                                                                         |
 | ------------------------------------------------- | --------- | ------------------------------------------------------------------------------- |
-| `/`                                               | static    | Landing page. Its header's "Sign in" opens `/login`.                            |
+| `/`                                               | static    | Landing page. Its header's "Sign in" opens `/login`; "Describe the list" is a live search for visitors ([docs/public_search.md](docs/public_search.md)). |
 | `/terms`                                          | static    | Terms & Conditions                                                              |
 | `/login`                                          | dynamic   | Sign-in (`noindex`). Sends an already signed-in visitor to `/home`.             |
 | `/home`                                           | dynamic   | Dashboard home: stats, search bar and filter panel, saved searches, enrichment. |
