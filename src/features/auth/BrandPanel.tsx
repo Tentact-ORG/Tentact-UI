@@ -1,12 +1,10 @@
-import type { CSSProperties } from "react";
 import { SITE } from "@/config/site";
+import { BrandMivy } from "./BrandMivy";
 import styles from "./BrandPanel.module.css";
 
-const PETALS = 14;
-
 /**
- * The sign-in page's visual half: glossy, playful 3D-style shapes drawn
- * entirely in CSS (no image files), floating slowly around a friendly flower.
+ * The sign-in page's visual half: glossy, playful 3D-style shapes drawn in
+ * CSS, floating slowly around Mivy, the site's assistant, who says hi.
  */
 export function BrandPanel() {
   return (
@@ -23,18 +21,7 @@ export function BrandPanel() {
         <span className={`${styles.shape} ${styles.glass} ${styles.glassRight}`} />
         <span className={`${styles.shape} ${styles.pyramid}`} />
 
-        <div className={styles.flower}>
-          <div className={styles.petals}>
-            {Array.from({ length: PETALS }, (_, i) => (
-              <i key={i} style={{ "--i": i, "--n": PETALS } as CSSProperties} />
-            ))}
-          </div>
-          <div className={styles.face}>
-            <b className={styles.eye} />
-            <b className={styles.eye} />
-            <b className={styles.nose} />
-          </div>
-        </div>
+        <BrandMivy />
       </div>
     </aside>
   );
