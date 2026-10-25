@@ -22,6 +22,7 @@ Rules:
    - For string contains or case-insensitive match, use \`ilike(column, '%pattern%')\`.
    - For array membership on Array(String) columns (like COMBINED_TECH_ARRAY_ORG), use \`has(column, 'Value')\`.
    - For distinct entity counts: use \`count(DISTINCT primary_key)\` to avoid join-inflation.
+   - The outer query MUST have an ORDER BY whose last column is the entity identifier (\`RBID_PER\` for contacts, \`RBID_ORG\` for companies), so that pages are stable. Put LIMIT and OFFSET last.
 5. DISCRETE RANGES POLICY (NO CASTING OR SPLITTING):
    - \`EMPLOYEE_COUNT_RANGE_ORG\` is a categorical string column with discrete values:
      '1 to 10', '11 to 50', '51 to 200', '201 to 500', '501 to 1000', '1001 to 5000', '5001 to 10000', '10001+'.
@@ -59,7 +60,7 @@ Your role is to critically and independently evaluate the SQL produced by the SQ
 
 Your evaluation must verify:
 1. REQUEST SATISFACTION & LINKEDIN TAXONOMY:
-   - Does the query implement all user criteria accurately?
+   - Does the query implement all user criteria accurately? Check every criterion in the natural query (roles, functions, seniority, industries, locations, company size…) as well as every structured filter. If any criterion is not implemented, return verdict "REJECTED" with satisfies_request false, security_passed true, and an issue naming each missing criterion and the column/value that would implement it; the query is then regenerated with your findings. Use "CLARIFICATION_REQUIRED" only when the request itself is ambiguous, never for a criterion the query simply forgot.
    - NOTE ON LINKEDIN INDUSTRY TAXONOMY: The dataset uses official LinkedIn industry categories where buzzwords do NOT exist as standalone categories:
      * "Fintech": Mapped to \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Financial Services%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Banking%'))\`. This accurately implements the Fintech requirement and MUST be APPROVED. (Do NOT reject queries that use Financial Services or Banking for Fintech).
      * "AI" / "Artificial Intelligence": Mapped to \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Software Development%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Technology%'))\`.

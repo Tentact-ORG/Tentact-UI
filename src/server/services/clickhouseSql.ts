@@ -21,7 +21,9 @@ export interface Token {
   kind: TokenKind;
   value: string;
   upper: string;
+  /** Start and end offsets of the token in the original SQL text. */
   pos: number;
+  end: number;
 }
 
 export interface TableRef {
@@ -47,6 +49,8 @@ export interface SqlAnalysis {
   wildcards: Array<{ qualifier: string | null }>;
   functions: string[];
   limit: { present: boolean; value: number | null };
+  /** The outer query has an ORDER BY clause (needed for stable pagination). */
+  hasOrderBy: boolean;
 }
 
 /** Reserved words that are never column references when unquoted. */
@@ -114,8 +118,8 @@ function readQuoted(sql: string, start: number, quote: string): { value: string;
 export function tokenize(sql: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
-  const push = (kind: TokenKind, value: string, pos: number) =>
-    tokens.push({ kind, value, upper: kind === "ident" ? value.toUpperCase() : value, pos });
+  const push = (kind: TokenKind, value: string, pos: number, end: number) =>
+    tokens.push({ kind, value, upper: kind === "ident" ? value.toUpperCase() : value, pos, end });
 
   while (i < sql.length) {
     const ch = sql[i];
@@ -150,20 +154,20 @@ export function tokenize(sql: string): Token[] {
     }
     if (ch === "'") {
       const { value, end } = readQuoted(sql, i, "'");
-      push("string", value, i);
+      push("string", value, i, end);
       i = end;
       continue;
     }
     if (ch === "`" || ch === '"') {
       const { value, end } = readQuoted(sql, i, ch);
-      push("qident", value, i);
+      push("qident", value, i, end);
       i = end;
       continue;
     }
     if (ch === "{") {
       const match = PARAM_RE.exec(sql.slice(i));
       if (match) {
-        push("param", match[0], i);
+        push("param", match[0], i, i + match[0].length);
         i += match[0].length;
         continue;
       }
@@ -171,7 +175,7 @@ export function tokenize(sql: string): Token[] {
     if (/[0-9]/.test(ch) || (ch === "." && /[0-9]/.test(sql[i + 1] ?? "") && !isMemberAccess(tokens))) {
       const match = NUMBER_RE.exec(sql.slice(i));
       if (match) {
-        push("number", match[0], i);
+        push("number", match[0], i, i + match[0].length);
         i += match[0].length;
         continue;
       }
@@ -179,18 +183,18 @@ export function tokenize(sql: string): Token[] {
     if (IDENT_START.test(ch)) {
       let j = i + 1;
       while (j < sql.length && IDENT_PART.test(sql[j])) j += 1;
-      push("ident", sql.slice(i, j), i);
+      push("ident", sql.slice(i, j), i, j);
       i = j;
       continue;
     }
     const multi = MULTI_CHAR_OPS.find((op) => sql.startsWith(op, i));
     if (multi) {
-      push("op", multi, i);
+      push("op", multi, i, i + multi.length);
       i += multi.length;
       continue;
     }
     if (SINGLE_CHAR_OPS.has(ch)) {
-      push("op", ch, i);
+      push("op", ch, i, i + 1);
       i += 1;
       continue;
     }
@@ -287,6 +291,7 @@ export function analyzeSql(sql: string): SqlAnalysis {
     wildcards: [],
     functions: [],
     limit: { present: false, value: null },
+    hasOrderBy: false,
   };
   if (statements.length !== 1) return analysis;
 
@@ -436,19 +441,59 @@ export function analyzeSql(sql: string): SqlAnalysis {
     });
   }
 
-  // Top-level LIMIT (ignoring LIMIT n BY ...). Supports "LIMIT n [OFFSET m]" and "LIMIT m, n".
-  for (let i = 0; i < toks.length; i++) {
-    if (ctx[i] !== "root" || !isWord(toks[i], "LIMIT")) continue;
-    let countTok = toks[i + 1];
-    let end = i + 2;
-    if (isOp(toks[i + 2], ",")) {
-      countTok = toks[i + 3];
-      end = i + 4;
-    }
-    if (isWord(toks[end], "BY")) continue;
-    const value = countTok?.kind === "number" ? Number(countTok.value) : null;
+  const outerLimit = findOuterLimit(toks, ctx);
+  if (outerLimit) {
+    const value = outerLimit.countToken?.kind === "number" ? Number(outerLimit.countToken.value) : null;
     analysis.limit = { present: true, value: value !== null && Number.isFinite(value) ? value : null };
   }
+  analysis.hasOrderBy = toks.some((t, i) => ctx[i] === "root" && isWord(t, "ORDER") && isWord(toks[i + 1], "BY"));
 
   return analysis;
+}
+
+interface OuterLimit {
+  /** Index of the LIMIT keyword and of the clause's last token. */
+  start: number;
+  last: number;
+  countToken: Token | undefined;
+}
+
+/**
+ * The outer query's LIMIT clause ("LIMIT n [OFFSET m]" or "LIMIT m, n"),
+ * ignoring "LIMIT n BY ..." and limits inside subqueries.
+ */
+function findOuterLimit(toks: Token[], ctx: Context[]): OuterLimit | null {
+  let found: OuterLimit | null = null;
+  for (let i = 0; i < toks.length; i++) {
+    if (ctx[i] !== "root" || !isWord(toks[i], "LIMIT")) continue;
+    let countToken = toks[i + 1];
+    let next = i + 2;
+    if (isOp(toks[i + 2], ",")) {
+      countToken = toks[i + 3];
+      next = i + 4;
+    }
+    if (isWord(toks[next], "BY")) continue;
+    let last = next - 1;
+    if (isWord(toks[next], "OFFSET") && toks[next + 1]) last = next + 1;
+    found = { start: i, last: Math.min(last, toks.length - 1), countToken };
+  }
+  return found;
+}
+
+/**
+ * Replaces the outer query's LIMIT/OFFSET with the given page, or appends one.
+ * Limits inside subqueries are left alone. Throws SqlParseError on input the
+ * analyzer cannot tokenize.
+ */
+export function rewriteOuterLimit(sql: string, limit: number, offset = 0): string {
+  const statements = splitStatements(tokenize(sql));
+  if (statements.length !== 1) throw new SqlParseError("Expected exactly one statement");
+  const toks = statements[0];
+  const clause = `LIMIT ${Math.trunc(limit)}${offset > 0 ? ` OFFSET ${Math.trunc(offset)}` : ""}`;
+  const outer = findOuterLimit(toks, computeContexts(toks));
+  if (!outer) {
+    const lastToken = toks[toks.length - 1];
+    return `${sql.slice(0, lastToken.end).trimEnd()} ${clause}${sql.slice(lastToken.end)}`;
+  }
+  return `${sql.slice(0, toks[outer.start].pos)}${clause}${sql.slice(toks[outer.last].end)}`;
 }

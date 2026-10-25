@@ -10,6 +10,9 @@ import type {
   StructuredFilter,
 } from "../schemas/search";
 import { auditService } from "./auditService";
+import { analyzeSql, rewriteOuterLimit } from "./clickhouseSql";
+import { schemaDiscoveryService } from "./schemaDiscovery";
+import { searchPlanCache, searchPlanKey, type SearchPlan } from "./searchPlanCache";
 import { queryExecutor } from "./queryExecutor";
 import { sqlGeneratorAgent } from "./sqlGeneratorAgent";
 import { sqlReviewerAgent } from "./sqlReviewerAgent";
@@ -159,12 +162,27 @@ class SearchOrchestrationWorkflow {
       return this.clarificationResponse(rep, start, rep.assumptions, rep.clarification_prompt);
     }
 
+    const planKey = searchPlanKey(rep, request.natural_query, schemaDiscoveryService.lastFingerprint);
+    const offset = (rep.page - 1) * rep.page_size;
+
+    // A search approved earlier (another page, a re-run): reuse its plan instead of the LLM agents.
+    const cached = searchPlanCache.get(planKey);
+    if (cached) {
+      const pageSql = rewriteOuterLimit(cached.clickhouseSql, rep.page_size, offset);
+      const validation = sqlValidator.validateSql(pageSql, userRole, false, 100);
+      if (validation.valid) {
+        return this.executePlan(rep, cached, pageSql, 0, start, userId, orgId, planKey);
+      }
+      logger.warn(`[SEARCH ORCHESTRATOR] Cached plan no longer validates; regenerating: ${validation.violations.join("; ")}`);
+      searchPlanCache.delete(planKey);
+    }
+
     let repairAttempts = 0;
     let lastErrorContext: string | null = null;
 
     while (repairAttempts <= this.maxRepairs) {
-      // 1. SQL Generator Agent
-      const genOutput: SQLGeneratorOutput = await sqlGeneratorAgent.generateSql(rep, request.natural_query);
+      // 1. SQL Generator Agent (told why the previous attempt failed, on repairs)
+      const genOutput: SQLGeneratorOutput = await sqlGeneratorAgent.generateSql(rep, request.natural_query, lastErrorContext);
       if (genOutput.unresolved_ambiguities.length > 0) {
         return this.clarificationResponse(rep, start, genOutput.assumptions, genOutput.unresolved_ambiguities.join("; "));
       }
@@ -185,7 +203,7 @@ class SearchOrchestrationWorkflow {
               reviewer_verdict: review.verdict,
               reviewer_reasoning: review.reasoning,
               validation_status: "SKIPPED",
-              repair_attempts: 0,
+              repair_attempts: repairAttempts,
               query_duration_ms: 0,
             }
           : null;
@@ -202,68 +220,45 @@ class SearchOrchestrationWorkflow {
           throw new PolicyViolationError(`Query rejected by security review: ${review.issues.join("; ")}`);
         }
         repairAttempts += 1;
-        lastErrorContext = `Reviewer rejected: ${review.issues.join("; ")}`;
+        lastErrorContext = `The reviewer rejected the query: ${review.issues.join("; ") || review.reasoning}`;
         continue;
       }
 
-      // 3. Deterministic SQL validation
-      const validation = sqlValidator.validateSql(genOutput.clickhouse_sql, userRole, false, 100);
+      // 3. Deterministic SQL validation of the exact text that will run (the requested page applied).
+      let pageSql: string;
+      try {
+        pageSql = rewriteOuterLimit(genOutput.clickhouse_sql, rep.page_size, offset);
+      } catch (err) {
+        repairAttempts += 1;
+        lastErrorContext = `The query could not be parsed: ${errorMessage(err)}`;
+        continue;
+      }
+      const validation = sqlValidator.validateSql(pageSql, userRole, false, 100);
       if (!validation.valid) {
         logger.warn(`[SEARCH ORCHESTRATOR] DETERMINISTIC SQL VALIDATOR FAILED: ${validation.violations.join("; ")}`);
         if (validation.violations.some((v) => v.includes("Access denied") || v.includes("Forbidden") || v.includes("Unapproved"))) {
           throw new PolicyViolationError(`Deterministic policy violation: ${validation.violations.join("; ")}`);
         }
         repairAttempts += 1;
-        lastErrorContext = `SQL Validator failed: ${validation.violations.join("; ")}`;
+        lastErrorContext = `The SQL validator rejected the query: ${validation.violations.join("; ")}`;
         continue;
       }
 
       // 4. Controlled execution
+      const plan: SearchPlan = {
+        clickhouseSql: genOutput.clickhouse_sql,
+        countSql: genOutput.count_sql,
+        parameters: genOutput.parameters,
+        assumptions: genOutput.assumptions,
+        reviewerVerdict: review.verdict,
+        reviewerReasoning: review.reasoning,
+        total: null,
+        createdAt: Date.now(),
+      };
       try {
-        const exec = await queryExecutor.executeSearchQuery(genOutput.clickhouse_sql, genOutput.count_sql, genOutput.parameters);
-        const totalPages = exec.total_count > 0 ? Math.ceil(exec.total_count / rep.page_size) : 1;
-        const diagnostic: SearchDiagnostic | null = isAdmin
-          ? {
-              generated_sql: genOutput.clickhouse_sql,
-              parameters: genOutput.parameters,
-              reviewer_verdict: review.verdict,
-              reviewer_reasoning: review.reasoning,
-              validation_status: "PASSED",
-              repair_attempts: repairAttempts,
-              query_duration_ms: exec.duration_ms,
-            }
-          : null;
-
-        await auditService.logEvent({
-          action: "EXECUTE_SEARCH",
-          resource: `leadgen.${rep.search_target}`,
-          status: "SUCCESS",
-          durationMs: Math.trunc(elapsedMs(start)),
-          orgId,
-          userId,
-          details: {
-            target: rep.search_target,
-            total_count: exec.total_count,
-            rows_returned: exec.records.length,
-            repair_attempts: repairAttempts,
-          },
-        });
-
-        return {
-          search_target: rep.search_target,
-          total_distinct_count: exec.total_count,
-          exact_count: exec.exact_count,
-          page: rep.page,
-          page_size: rep.page_size,
-          total_pages: totalPages,
-          records: exec.records,
-          applied_assumptions: genOutput.assumptions,
-          applied_filters: rep.filters,
-          clarification_required: false,
-          clarification_message: null,
-          execution_time_ms: elapsedMs(start),
-          diagnostic,
-        };
+        // Only plans with a stable ORDER BY can be paged consistently, so only those are reused.
+        const cacheKey = analyzeSql(pageSql).hasOrderBy ? planKey : null;
+        return await this.executePlan(rep, plan, pageSql, repairAttempts, start, userId, orgId, cacheKey);
       } catch (err) {
         logger.warn(`ClickHouse execution error on attempt ${repairAttempts}: ${errorMessage(err)}`);
         repairAttempts += 1;
@@ -274,6 +269,70 @@ class SearchOrchestrationWorkflow {
     throw new Error(
       `Search query failed after ${this.maxRepairs} bounded repair attempts. Last error: ${lastErrorContext}`,
     );
+  }
+
+  /** Runs one page of an approved plan, records the search and (when `cacheKey` is set) remembers the plan. */
+  private async executePlan(
+    rep: IntermediateSearchRepresentation,
+    plan: SearchPlan,
+    pageSql: string,
+    repairAttempts: number,
+    start: number,
+    userId: number | null,
+    orgId: number | null,
+    cacheKey: string | null,
+  ): Promise<SearchResultResponse> {
+    const exec = await queryExecutor.executeSearchQuery(pageSql, plan.countSql, plan.parameters, undefined, plan.total);
+    if (cacheKey) {
+      searchPlanCache.set(cacheKey, { ...plan, total: plan.total ?? { count: exec.total_count, exact: exec.exact_count } });
+    }
+    const reused = plan.total !== null;
+    const totalPages = exec.total_count > 0 ? Math.ceil(exec.total_count / rep.page_size) : 1;
+    const diagnostic: SearchDiagnostic | null =
+      rep.user_role === UserRole.ADMIN
+        ? {
+            generated_sql: pageSql,
+            parameters: plan.parameters,
+            reviewer_verdict: plan.reviewerVerdict,
+            reviewer_reasoning: reused ? `Reused the plan approved for this search. ${plan.reviewerReasoning}` : plan.reviewerReasoning,
+            validation_status: "PASSED",
+            repair_attempts: repairAttempts,
+            query_duration_ms: exec.duration_ms,
+          }
+        : null;
+
+    await auditService.logEvent({
+      action: "EXECUTE_SEARCH",
+      resource: `leadgen.${rep.search_target}`,
+      status: "SUCCESS",
+      durationMs: Math.trunc(elapsedMs(start)),
+      orgId,
+      userId,
+      details: {
+        target: rep.search_target,
+        total_count: exec.total_count,
+        rows_returned: exec.records.length,
+        repair_attempts: repairAttempts,
+        page: rep.page,
+        plan_reused: reused,
+      },
+    });
+
+    return {
+      search_target: rep.search_target,
+      total_distinct_count: exec.total_count,
+      exact_count: exec.exact_count,
+      page: rep.page,
+      page_size: rep.page_size,
+      total_pages: totalPages,
+      records: exec.records,
+      applied_assumptions: plan.assumptions,
+      applied_filters: rep.filters,
+      clarification_required: false,
+      clarification_message: null,
+      execution_time_ms: elapsedMs(start),
+      diagnostic,
+    };
   }
 }
 

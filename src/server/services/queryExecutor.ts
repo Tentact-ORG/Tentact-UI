@@ -38,40 +38,41 @@ export function sanitizeClickhouseSql(sql: string | null): string | null {
 
 /** Controlled query execution with exact distinct-entity counts. */
 class QueryExecutorService {
+  /**
+   * Runs the data query and (when given) the distinct-count query in parallel.
+   * Pass `knownTotal` to reuse a count from an earlier page of the same search.
+   */
   async executeSearchQuery(
     clickhouseSql: string,
     countSql: string | null = null,
     parameters: Record<string, unknown> | null = null,
     timeoutSec?: number,
+    knownTotal: { count: number; exact: boolean } | null = null,
   ): Promise<SearchExecutionResult> {
     const start = performance.now();
-    let totalCount = 0;
-    let exactCount = false;
-
     const dataSql = sanitizeClickhouseSql(clickhouseSql);
-    const sanitizedCountSql = sanitizeClickhouseSql(countSql);
+    const sanitizedCountSql = knownTotal ? null : sanitizeClickhouseSql(countSql);
 
-    if (sanitizedCountSql && sanitizedCountSql.trim()) {
-      try {
-        const { rows } = await chService.executeQuery(sanitizedCountSql, parameters, timeoutSec);
-        if (rows.length > 0 && rows[0].length > 0) {
-          totalCount = Math.trunc(Number(rows[0][0]));
-          exactCount = true;
-        }
-      } catch (err) {
-        logger.warn(`[QUERY EXECUTOR] ClickHouse count query failed or timed out: ${errorMessage(err)}\nCount SQL: ${sanitizedCountSql}`);
-        totalCount = -1;
-        exactCount = false;
-      }
-    }
+    const countPromise: Promise<{ count: number; exact: boolean } | null> =
+      sanitizedCountSql && sanitizedCountSql.trim()
+        ? chService.executeQuery(sanitizedCountSql, parameters, timeoutSec).then(
+            ({ rows }) => (rows.length > 0 && rows[0].length > 0 ? { count: Math.trunc(Number(rows[0][0])), exact: true } : { count: 0, exact: false }),
+            (err: unknown) => {
+              logger.warn(`[QUERY EXECUTOR] ClickHouse count query failed or timed out: ${errorMessage(err)}\nCount SQL: ${sanitizedCountSql}`);
+              return null; // fall back to the loaded rows below
+            },
+          )
+        : Promise.resolve(knownTotal);
 
     let result;
     try {
       result = await chService.executeQuery(dataSql, parameters, timeoutSec);
     } catch (err) {
       logger.error(`[QUERY EXECUTOR] ClickHouse query execution error: ${errorMessage(err)}\nSQL: ${dataSql}`);
+      await countPromise; // never leave the count query unobserved
       throw err;
     }
+    const counted = await countPromise;
     const durationMs = performance.now() - start;
 
     if (result.rows.length === 0) {
@@ -88,9 +89,13 @@ class QueryExecutorService {
       return record;
     });
 
-    if (!sanitizedCountSql || totalCount === -1) totalCount = records.length;
-
-    return { records, total_count: totalCount, exact_count: exactCount, columns: result.columns, duration_ms: durationMs };
+    return {
+      records,
+      total_count: counted ? counted.count : records.length,
+      exact_count: counted ? counted.exact : false,
+      columns: result.columns,
+      duration_ms: durationMs,
+    };
   }
 }
 

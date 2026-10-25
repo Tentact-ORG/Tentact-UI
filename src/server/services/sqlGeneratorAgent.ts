@@ -16,7 +16,11 @@ const MAX_VOCABULARY_VALUES = 60;
 
 /** Agent 1: translates the intermediate representation into candidate ClickHouse SQL. */
 class SQLGeneratorAgent {
-  async generateSql(rep: IntermediateSearchRepresentation, naturalQuery: string | null): Promise<SQLGeneratorOutput> {
+  /**
+   * @param feedback Why the previous attempt was rejected or failed (reviewer issues,
+   *   validator violations, database errors); given to the model on repair attempts.
+   */
+  async generateSql(rep: IntermediateSearchRepresentation, naturalQuery: string | null, feedback: string | null = null): Promise<SQLGeneratorOutput> {
     const schema = schemaDiscoveryService.getCachedSchema();
     const approvedJoins = relationshipService.getApprovedRelationships();
     const cachedValues = valueDiscoveryService.getCachedValues();
@@ -69,7 +73,7 @@ ${JSON.stringify(verifiedSampleValues)}
 
 Empty Columns (no data, never filter on these):
 ${JSON.stringify(emptyColumns)}
-
+${feedback ? `\nPrevious Attempt Feedback (the last query was not accepted; produce a corrected query that fixes every point):\n${feedback}\n` : ""}
 User Search Request:
 Natural Query: ${naturalQuery || "None provided"}
 Intermediate Search Representation:

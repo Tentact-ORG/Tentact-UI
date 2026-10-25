@@ -11,7 +11,10 @@ import { ExportStatus, toExportJob, type ExportJob } from "../models/entities";
 import type { SearchRequest } from "../schemas/search";
 import { auditService } from "./auditService";
 import { chService } from "./clickhouseClient";
+import { rewriteOuterLimit } from "./clickhouseSql";
 import { sanitizeClickhouseSql } from "./queryExecutor";
+import { schemaDiscoveryService } from "./schemaDiscovery";
+import { searchPlanCache, searchPlanKey } from "./searchPlanCache";
 import { searchOrchestrator } from "./searchOrchestrator";
 import { sqlGeneratorAgent } from "./sqlGeneratorAgent";
 import { sqlReviewerAgent } from "./sqlReviewerAgent";
@@ -66,12 +69,9 @@ function csvLine(fields: string[]): string {
   return `${fields.map(csvField).join(",")}\r\n`;
 }
 
-/** Replaces every LIMIT [OFFSET] clause with the export cap, or appends one. */
+/** Sets the outer query's LIMIT to the export cap (removing any OFFSET); limits inside subqueries are kept. */
 export function applyExportLimit(sql: string, maxRows: number): string {
-  if (sql.toLowerCase().includes("limit ")) {
-    return sql.replace(/limit\s+\d+(\s+offset\s+\d+)?/gi, `LIMIT ${maxRows}`);
-  }
-  return `${sql} LIMIT ${maxRows}`;
+  return rewriteOuterLimit(sql, maxRows, 0);
 }
 
 async function writeCsv(filePath: string, columns: string[], rows: unknown[][]): Promise<void> {
@@ -149,18 +149,30 @@ class ExportService {
 
     try {
       const rep = searchOrchestrator.buildIntermediateRepresentation(request, userRole);
-      const gen = await sqlGeneratorAgent.generateSql(rep, request.natural_query);
-      const review = await sqlReviewerAgent.reviewSql(rep, gen, request.natural_query);
-      if (review.verdict !== "APPROVED") {
-        throw new PolicyViolationError(`Export query rejected by reviewer: ${review.reasoning}`);
+      // The plan approved when this search ran exports exactly the rows the user saw; otherwise generate and review one.
+      const plan = searchPlanCache.get(searchPlanKey(rep, request.natural_query, schemaDiscoveryService.lastFingerprint));
+      let sql: string;
+      let parameters: Record<string, unknown>;
+      if (plan) {
+        sql = plan.clickhouseSql;
+        parameters = plan.parameters;
+      } else {
+        const gen = await sqlGeneratorAgent.generateSql(rep, request.natural_query);
+        const review = await sqlReviewerAgent.reviewSql(rep, gen, request.natural_query);
+        if (review.verdict !== "APPROVED") {
+          throw new PolicyViolationError(`Export query rejected by reviewer: ${review.reasoning}`);
+        }
+        sql = gen.clickhouse_sql;
+        parameters = gen.parameters;
       }
-      const validation = sqlValidator.validateSql(gen.clickhouse_sql, userRole, true);
+
+      // Validate the exact text that runs.
+      const exportSql = applyExportLimit(sanitizeClickhouseSql(sql), maxRows);
+      const validation = sqlValidator.validateSql(exportSql, userRole, true);
       if (!validation.valid) {
         throw new PolicyViolationError(`Export query policy violation: ${validation.violations.join("; ")}`);
       }
-
-      const exportSql = applyExportLimit(sanitizeClickhouseSql(gen.clickhouse_sql), maxRows);
-      const { columns, rows } = await chService.executeQuery(exportSql, gen.parameters, 60);
+      const { columns, rows } = await chService.executeQuery(exportSql, parameters, 60);
 
       const storageDir = resolveFromCwd(getSettings().EXPORT_STORAGE_PATH);
       await fs.promises.mkdir(storageDir, { recursive: true, mode: 0o700 });
