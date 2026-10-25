@@ -18,7 +18,7 @@ flowchart TD
     subgraph "Two-Agent LLM Engine & Security"
         Backend -->|Intermediate Representation| Agent1["SQL Generator Agent"]
         MetadataCache -.->|Discovered Schema & Approved Joins| Agent1
-        Agent1 -->|Candidate ClickHouse SQL| Agent2["Independent Reviewer Agent"]
+        Agent1 -->|Candidate ClickHouse SQL| Agent2["Independent Reviewer Agent (optionally another model family)"]
         MetadataCache -.->|Security Policies & Rules| Agent2
         Agent2 -->|Verdict: APPROVED / REJECTED| Validator["Deterministic ClickHouse SQL Validator"]
         Validator -->|Strict Policy Passed| Executor["Controlled Query Executor"]
@@ -56,6 +56,9 @@ LLM output is treated as untrusted user input. Before execution, every query is 
 
 ### 4. Bounded Repair Loop
 If a recoverable SQL execution error occurs, the sanitized error is returned to the generator. The platform permits **at most two repair attempts**, re-running both Agent 2 and the deterministic validator after every repair. Security violations, unapproved joins, and ambiguous queries trigger immediate failure or clarification prompts without retry loops.
+
+### 4a. Approved Plan Cache (paging, exports and repeat searches)
+Once a query has been generated, approved by the reviewer and passed the validator, it is cached for 30 minutes (up to 500 plans, `src/server/services/searchPlanCache.ts`), keyed by role, schema fingerprint, the normalized natural query, filters and sorting. "Load more", re-applied saved searches and exports reuse it: the outer `LIMIT`/`OFFSET` is rewritten token-aware, the page SQL is validated again, and no model is called, so pages are consistent with each other and come back in about a second instead of the 20–30 s of a fresh generation. Only plans whose SQL ends in a deterministic `ORDER BY` are cached. The data and count queries run in parallel, and a cached plan reuses its count.
 
 ### 5. Multi-Tenant Organization Isolation
 Underlying lead records in ClickHouse are shared across organizations, but application-level state (saved searches, organization configuration, export jobs, users, and audit logs) is strictly isolated by `org_id` on the server.

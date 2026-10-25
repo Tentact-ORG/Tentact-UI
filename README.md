@@ -42,8 +42,13 @@ reference is [docs/environment_variables.md](docs/environment_variables.md). The
 | `DATABASE_URL`                             | Application database: `sqlite:///./leadgen_app.db` or a `postgresql://` URL.                |
 | `CLICKHOUSE_*`                             | The lead warehouse connection (`CLICKHOUSE_MODE=mock` runs on the bundled synthetic data).  |
 | `LLM_PROVIDER` and `AZURE_OPENAI_*`        | The model behind the SQL agents; see [docs/llm_configuration.md](docs/llm_configuration.md). |
+| `LLM_REVIEWER_PROVIDER`, `AZURE_ANTHROPIC_*` | Optional: run the SQL reviewer on Claude (Azure AI Foundry) for an independent check.     |
+| `CREDITS_*`                                | Pay-to-reveal contact details and the top-up operators; see [docs/credits.md](docs/credits.md). |
 
 First run: create the first administrator with `npm run bootstrap-admin`, then sign in at `/login`.
+An existing database (including one created by the earlier Python service) is upgraded on the
+first start; preview the changes with `npm run migrate-db -- --check` and apply them with
+`npm run migrate-db`. SQLite databases are backed up next to the file (`*.db.backup-<time>`) first.
 Administrators add further users in the admin console.
 
 ## Routes
@@ -56,6 +61,7 @@ Administrators add further users in the admin console.
 | `/home`                                           | dynamic   | Dashboard home: stats, search bar and filter panel, saved searches, enrichment. |
 | `/home/search`                                    | dynamic   | Prospect search with the full, selectable results table.                        |
 | `/home/lists`                                     | dynamic   | Prospect lists, opened from the Lists button in the top bar.                    |
+| `/credits`                                        | dynamic   | Credit balance, activity, top-up requests and (for operators) the approval queue. |
 | `/home/admin`                                     | dynamic   | Admin console (administrators and auditors): schema health, join approvals, column policies, users, audit log. |
 | `/api/*`                                          | dynamic   | The workspace API (route handlers in `src/app/api`); see [docs/architecture.md](docs/architecture.md). |
 | `/credits`                                        | dynamic   | Buy credits: packs or a custom amount; Top up sends a pre-filled request to sales. |

@@ -29,7 +29,13 @@ The LeadGen AI Platform features a **provider-independent LLM architecture** (`s
    - Sampling parameters are not sent (`LLM_TEMPERATURE` does not apply); responses may include thinking blocks, and only the text content is used.
    - For models that support it, server-side refusal fallback (`fallbacks: "default"`) is enabled so a declined request is retried on Anthropic's recommended fallback model; a refusal that still stands is reported as an error.
 
-6. **`gemini`**
+6. **`azure-anthropic`** (Claude on Azure AI Foundry)
+   - Official `@anthropic-ai/foundry-sdk` against `https://<resource>.services.ai.azure.com/anthropic/`, authenticated with the resource key (`x-api-key`); the model is the **deployment name** (`AZURE_ANTHROPIC_DEPLOYMENT`).
+   - No sampling parameters are sent. Foundry has no server-side refusal fallback, so a refusal (`stop_reason: "refusal"`) or a truncated answer (`max_tokens`) is reported as a provider error and the search pipeline retries or fails safely.
+   - Endpoint and key default to the `AZURE_OPENAI_*` resource. `npm run verify-azure` checks the Claude deployment as well.
+   - Tested: `claude-haiku-4-5` on the same resource as `gpt-5-mini`, about 1.5 s for a minimal request.
+
+7. **`gemini`**
    - Uses structured generation (`responseMimeType: "application/json"`). Default model: `gemini-1.5-pro`; set `LLM_MODEL` to a currently available Gemini model.
    - The API key is sent in the `x-goog-api-key` header, never in the URL.
 
@@ -46,6 +52,14 @@ AZURE_OPENAI_API_KEY=...
 AZURE_OPENAI_DEPLOYMENT=gpt-5-mini
 AZURE_OPENAI_REASONING_EFFORT=medium
 AZURE_OPENAI_REVIEWER_REASONING_EFFORT=low
+```
+
+### Claude as an independent reviewer
+The generator and the reviewer are separate agents; the reviewer can run on a different model family so it doesn't share the generator's blind spots. Every reviewed query still passes the deterministic validator and runs read-only, whichever model approved it.
+```bash
+LLM_PROVIDER=azure                      # generator: gpt-5-mini (above)
+LLM_REVIEWER_PROVIDER=azure-anthropic   # reviewer: Claude on the same resource
+AZURE_ANTHROPIC_DEPLOYMENT=claude-haiku-4-5
 ```
 
 ### Groq

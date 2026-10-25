@@ -93,4 +93,5 @@ Before exposing the stack, replace `TENTACT_AUTH_SECRET` and `JWT_SECRET_KEY` in
 ## Deployment Notes
 
 - The application must run as a long-lived Node.js server (`next start` or the standalone `server.js` in the Docker image). CSV exports run as in-process background jobs and the export cleanup runs on an hourly timer, so serverless/edge platforms are not supported.
+- **Upgrading an existing database:** the first start adds missing tables and columns. For SQLite the file is copied to `<file>.backup-<timestamp>` (online backup) before anything changes; for PostgreSQL take a `pg_dump` first. `npm run migrate-db -- --check` lists the pending changes and `npm run migrate-db` applies them ahead of a deployment.
 - Startup work (table creation, ClickHouse schema discovery, background value discovery) begins when the server boots (`src/instrumentation.ts`); API requests wait for it to finish.

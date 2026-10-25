@@ -46,6 +46,12 @@ All local passwords are automatically hashed with **Argon2id** (`@node-rs/argon2
 ### Dashboard Sessions
 Signing in at `/login` sets an HttpOnly, SameSite=Lax session cookie signed with `TENTACT_AUTH_SECRET`. It names only the user; the account, role and organization are re-read on every request, so deactivation and role changes apply immediately. API routes accept this cookie and reject cookie-authenticated writes from other origins.
 
+### Brute-force protection
+- **Account lockout:** five wrong passwords for one email within 15 minutes lock that email for 15 minutes. The state is stored in the `login_lockouts` table, so it holds across restarts. Unknown emails lock the same way, so a lockout reveals nothing about which accounts exist. A successful sign-in clears the count.
+- **Per-client limit:** at most 30 sign-in requests per 10 minutes from one client address, read from the proxy's `X-Forwarded-For` / `X-Real-IP` header. Without a proxy header the limit is skipped and the lockout remains the bound. The limit is kept in memory per server instance.
+- The sign-in form shows a "try again in N minutes" message; `/api/auth/login` answers `429` with `Retry-After`. `/api/auth/bootstrap` has the same per-client limit. Every failure, lockout and rate-limited attempt is written to the audit log (`LOGIN_FAILED`, `LOGIN_LOCKED`, `LOGIN_RATE_LIMITED`).
+- To unlock an account early, delete its row: `DELETE FROM login_lockouts WHERE email = 'user@example.com';`
+
 ### Signed JWT Tokens (API clients)
 `POST /api/auth/login` issues a signed JSON Web Token for use as `Authorization: Bearer`, with:
 - `sub`: Internal User ID

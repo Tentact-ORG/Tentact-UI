@@ -31,7 +31,8 @@ All runtime configuration is read from environment variables. Next.js loads a lo
 | `JWT_ALGORITHM` | `HS256` | `HS256`, `HS384` or `HS512`. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `480` | Token lifetime (8 hours by default). |
 | `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Comma-delimited origins allowed to call `/api/*` cross-origin. The bundled UI is same-origin and does not need this. |
-| `LLM_PROVIDER` | `mock` | `mock`, `azure`, `groq`, `openai`, `anthropic` or `gemini`. |
+| `LLM_PROVIDER` | `mock` | `mock`, `azure`, `azure-anthropic`, `groq`, `openai`, `anthropic` or `gemini`. |
+| `LLM_REVIEWER_PROVIDER` | *(= `LLM_PROVIDER`)* | Provider for the SQL reviewer agent only, for an independent check by a different model family (e.g. `azure-anthropic` with an `azure` generator). |
 | `LLM_MODEL` | `mock-advanced-sql` | Model name. Left at the default, each provider uses its own default model (see [LLM configuration](llm_configuration.md)). |
 | `LLM_TEMPERATURE` | `0.0` | Sampling temperature for Groq, OpenAI and Gemini. Not sent to Anthropic (the Messages API no longer accepts it). |
 | `LLM_TIMEOUT_SEC` | `25` | LLM request timeout in seconds. |
@@ -46,6 +47,12 @@ All runtime configuration is read from environment variables. Next.js loads a lo
 | `AZURE_OPENAI_REASONING_EFFORT` | *(unset)* | `minimal`, `low`, `medium` or `high` for reasoning deployments (gpt-5, o-series); used by the SQL generator. |
 | `AZURE_OPENAI_REVIEWER_REASONING_EFFORT` | *(generator's)* | Reasoning effort for the SQL reviewer. |
 | `AZURE_OPENAI_TEMPERATURE` | *(unset)* | Sent only when set; reasoning deployments reject any value but the default. |
+| `AZURE_ANTHROPIC_ENDPOINT` | *(the `AZURE_OPENAI_ENDPOINT` resource)* | Foundry Anthropic endpoint, `https://<resource>.services.ai.azure.com/anthropic`, for the `azure-anthropic` provider. |
+| `AZURE_ANTHROPIC_API_KEY` | *(`AZURE_OPENAI_API_KEY`)* | Key of that Foundry resource; server-side only. A key from another resource is rejected with 401. |
+| `AZURE_ANTHROPIC_DEPLOYMENT` | *(empty)* | Claude deployment name, e.g. `claude-haiku-4-5`. Required when either provider is `azure-anthropic`. |
+| `CREDITS_ENABLED` | `true` | Mask contacts' emails and phone numbers in search results and charge credits to reveal or export them (see [Credits](credits.md)). `false` shows them in full and charges nothing. |
+| `CREDITS_PER_CONTACT` | `1` | Credits per newly revealed contact. A contact is charged once per workspace. |
+| `CREDITS_OPERATOR_EMAILS` | *(empty)* | Comma-separated emails of platform operators who approve top-up requests and grant credits to any workspace. |
 | `EXPORT_MAX_ROWS` | `100000` | Maximum row cap for CSV export jobs. |
 | `EXPORT_EXPIRATION_HOURS` | `24` | Retention period before export files are deleted. |
 | `EXPORT_STORAGE_PATH` | `./exports_storage` | Private directory for generated CSV files (files are created with mode `0600`). |
