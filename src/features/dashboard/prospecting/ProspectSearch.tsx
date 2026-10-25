@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { cx } from "@/lib/cx";
 import { dashboardApi, errorText } from "../api/dashboard.api";
 import { BuildingIcon, FilterIcon, SearchIcon, SparkleIcon, UserIcon } from "../components/icons";
@@ -8,7 +8,7 @@ import { useWorkspaceData } from "../WorkspaceDataContext";
 import { EnrichmentOptions } from "./EnrichmentOptions";
 import { FilterGroup } from "./FilterGroup";
 import { activeFilterChips, applyInterpretation, toInterpretFields, type FilterTab } from "./prospect.filters";
-import type { ProspectFilters } from "./prospect.types";
+import type { MultiFilterKey, ProspectFilters } from "./prospect.types";
 import { consumeSearchFocusRequest, PROSPECT_SEARCH_INPUT_ID } from "./search-focus";
 import styles from "./Prospecting.module.css";
 
@@ -18,6 +18,26 @@ type Interpretation =
   | { status: "loading"; text: string }
   | { status: "ready"; text: string; previous: ProspectFilters; remaining: string }
   | { status: "error"; text: string; previous: ProspectFilters; message: string };
+
+function SuggestionChips({ items, onAdd }: { items: { key: MultiFilterKey; value: string; label: string }[]; onAdd: (key: MultiFilterKey, value: string) => void }) {
+  if (items.length === 0) return null;
+  return (
+    <div className={styles.suggestions}>
+      <span className={styles.suggestionsLabel}>Suggested</span>
+      {items.map((item) => (
+        <button
+          key={`${item.key}:${item.value}`}
+          type="button"
+          className={styles.suggestion}
+          onClick={() => onAdd(item.key, item.value)}
+          aria-label={`Add filter ${item.label}: ${item.value}`}
+        >
+          + {item.label}: {item.value}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const TABS: { id: FilterTab; label: string; Icon: typeof UserIcon }[] = [
   { id: "people", label: "People", Icon: UserIcon },
@@ -35,6 +55,8 @@ export function ProspectSearch() {
   const { search, fields, fieldsReady, fieldsError } = useWorkspaceData();
   const { filters, state, dirty, busy, run, setQuery, toggleOption, setToggle, setJobChange, clearField, clearAll, replaceFilters } = search;
   const [interpretation, setInterpretation] = useState<Interpretation>({ status: "idle" });
+  // Related values from the last interpretation, offered as one-click additions until used.
+  const [suggestions, setSuggestions] = useState<{ key: MultiFilterKey; value: string; label: string }[]>([]);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<FilterTab>("people");
   const containerRef = useRef<HTMLElement>(null);
@@ -43,9 +65,26 @@ export function ProspectSearch() {
   const panelId = useId();
 
   const chips = activeFilterChips(filters).filter((chip) => chip.key !== "query");
-  const countForTab = (id: FilterTab) => chips.filter((chip) => fields.some((field) => field.tab === id && field.key === chip.key)).length;
+  const tabCounts = useMemo(() => {
+    const counts: Record<FilterTab, number> = { people: 0, company: 0, enrich: 0 };
+    for (const chip of chips) {
+      const field = fields.find((item) => item.key === chip.key);
+      if (field) counts[field.tab] += 1;
+    }
+    return counts;
+  }, [chips, fields]);
+  const countForTab = (id: FilterTab) => tabCounts[id];
 
-  const openPanel = useCallback(() => setOpen(true), []);
+  // Opening the panel shows the tab with the filters in use when the current one has none.
+  const openPanel = useCallback(() => {
+    if (!open && tabCounts[tab] === 0) {
+      const withFilters = TABS.find((item) => item.id !== "enrich" && tabCounts[item.id] > 0);
+      if (withFilters) setTab(withFilters.id);
+    }
+    setOpen(true);
+  }, [open, tab, tabCounts]);
+
+  const openSuggestions = suggestions.filter((item) => !(filters[item.key] as readonly string[]).includes(item.value));
 
   /** Closes the panel and searches with the current filters. */
   const submit = useCallback(() => {
@@ -70,6 +109,12 @@ export function ProspectSearch() {
     try {
       const result = await dashboardApi.interpret(text, toInterpretFields(fields));
       replaceFilters(applyInterpretation(previous, result, fields));
+      setSuggestions(
+        result.suggestions.flatMap((item) => {
+          const field = fields.find((f) => f.kind === "multi" && f.key === item.key);
+          return field && field.kind === "multi" ? [{ key: field.key, value: item.value, label: field.label }] : [];
+        }),
+      );
       setInterpretation({ status: "ready", text, previous, remaining: result.remaining_query });
     } catch (error) {
       setInterpretation({ status: "error", text, previous, message: errorText(error, "The request couldn't be turned into filters.") });
@@ -226,6 +271,7 @@ export function ProspectSearch() {
                   Apply filters
                 </button>
               </div>
+              <SuggestionChips items={openSuggestions} onAdd={toggleOption} />
             </>
           )}
         </div>
@@ -274,6 +320,12 @@ export function ProspectSearch() {
             </button>
           </div>
         </div>
+
+        {openSuggestions.length > 0 && (
+          <div className={styles.panelSuggestions}>
+            <SuggestionChips items={openSuggestions} onAdd={toggleOption} />
+          </div>
+        )}
 
         <div role="tabpanel" id={tabPanelId(tab)} aria-labelledby={tabId(tab)} className={styles.tabPanel}>
           {tab === "enrich" ? (

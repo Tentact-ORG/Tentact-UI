@@ -40,17 +40,22 @@ export interface InterpretResult {
   filters: Record<string, string[]>;
   /** Criteria no field expresses, kept as the free-text query (empty when everything became a filter). */
   remaining_query: string;
+  /** Related filter values the user may also want (never ones already in `filters`); options of multi fields only. */
+  suggestions: { key: string; value: string }[];
 }
+
+const MAX_SUGGESTIONS = 8;
 
 const modelOutputSchema = z.object({
   filters: z.record(z.string(), z.union([z.array(z.union([z.string(), z.number(), z.boolean()])), z.string(), z.boolean()])).default({}),
   remaining_query: z.string().nullable().default(""),
+  suggestions: z.array(z.object({ key: z.string(), value: z.union([z.string(), z.number()]) })).default([]),
 });
 
 const SYSTEM_PROMPT = `You turn a B2B prospect search request into search filters. The results are always PEOPLE (contacts); company words describe the companies those people work at.
 
 You receive the request and the available filter fields, each with its key, label, kind and options. Return strict JSON:
-{"filters": {"<field key>": ["<value>", ...]}, "remaining_query": "<criteria no field can express, or empty>"}
+{"filters": {"<field key>": ["<value>", ...]}, "remaining_query": "<criteria no field can express, or empty>", "suggestions": [{"key": "<field key>", "value": "<option>"}, ...]}
 
 Rules:
 - Use only the given field keys. For "multi" fields return values copied exactly from that field's options. A field marked allow_custom may also take short free values (job titles, company names) when no option fits.
@@ -60,6 +65,7 @@ Rules:
 - A location applies to the person's location field unless the request says headquartered/based for the company.
 - Different fields combine with AND, values within one field with OR. Express each idea in one field only: don't add a job title when seniority, department or persona already captures it ("VP sales" → seniority 'VP' + the sales department, no title). When the request names alternatives that would need different fields ("CTOs and engineering leaders"), use the field that covers all of them (seniorities 'C-Team', 'VP', 'Director' + department 'Engineering' covers CTOs too) instead of ANDing them.
 - Add nothing the request doesn't say. Never guess values that are not options (except allow_custom fields).
+- suggestions: up to 6 related values the user might also want to add, from the "multi" fields' options only and never already in filters: adjacent industries (e.g. 'Public Relations and Communications Services' next to 'Marketing Services'), the neighbouring seniority level, related personas or departments, the next company-size band. Only closely related values; [] when nothing fits.
 - remaining_query: a short phrase with only the criteria that no field could express (e.g. "recently raised a Series B"); "" when everything was mapped. Don't repeat mapped criteria there.`;
 
 function normalize(value: string): string {
@@ -90,7 +96,17 @@ export function sanitizeInterpretation(raw: z.infer<typeof modelOutputSchema>, f
     const unique = [...new Set(accepted)];
     if (unique.length > 0) filters[field.key] = unique;
   }
-  return { filters, remaining_query: (raw.remaining_query ?? "").trim().slice(0, 500) };
+  // Suggestions must be real options of a multi field and not already selected.
+  const suggestions: InterpretResult["suggestions"] = [];
+  for (const suggestion of raw.suggestions) {
+    const field = fields.find((f) => f.key === suggestion.key && f.kind === "multi");
+    const option = field?.options.find((o) => normalize(o) === normalize(String(suggestion.value)));
+    if (!field || !option || filters[field.key]?.includes(option)) continue;
+    if (suggestions.some((s) => s.key === field.key && s.value === option)) continue;
+    suggestions.push({ key: field.key, value: option });
+    if (suggestions.length >= MAX_SUGGESTIONS) break;
+  }
+  return { filters, remaining_query: (raw.remaining_query ?? "").trim().slice(0, 500), suggestions };
 }
 
 /** Offline interpretation for the mock provider: options mentioned verbatim in the request. */
@@ -102,7 +118,7 @@ function interpretOffline(request: InterpretRequest): InterpretResult {
     const hits = field.options.filter((option) => option.length >= 3 && text.includes(normalize(option)));
     if (hits.length > 0) filters[field.key] = hits;
   }
-  return { filters, remaining_query: Object.keys(filters).length > 0 ? "" : request.query };
+  return { filters, remaining_query: Object.keys(filters).length > 0 ? "" : request.query, suggestions: [] };
 }
 
 class QueryInterpreter {

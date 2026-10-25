@@ -1182,3 +1182,68 @@
   justify-content: flex-end;
   gap: 16px;
 }
+
+/* ---------- collapsible filter groups and suggestions ---------- */
+.groupToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  color: inherit;
+}
+
+.groupChevron {
+  transition: transform 0.15s ease;
+  color: var(--muted);
+}
+
+.groupChevronOpen {
+  transform: rotate(90deg);
+}
+
+.groupClosed .groupLegend {
+  margin-bottom: 0;
+}
+
+.groupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.groupBody[hidden] {
+  display: none;
+}
+
+.suggestions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.suggestionsLabel {
+  margin-right: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.suggestion {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--line-2);
+  background: transparent;
+  font-size: 12.5px;
+}
+
+.suggestion:hover {
+  border-style: solid;
+  border-color: var(--ink);
+}
+
+.panelSuggestions {
+  padding: 12px 18px 0;
+}

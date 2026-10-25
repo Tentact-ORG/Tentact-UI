@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { cx } from "@/lib/cx";
+import { ChevronRightIcon } from "../components/icons";
 import type { FilterField } from "./prospect.filters";
 import type { MultiFilterKey, ProspectFilters, ToggleFilterKey } from "./prospect.types";
 import styles from "./Prospecting.module.css";
@@ -20,6 +21,51 @@ interface FilterGroupProps {
   onClear: (key: keyof ProspectFilters) => void;
 }
 
+/**
+ * A group is open while it has a value (or after the user opens it) and folds
+ * down to its header otherwise, so the panel leads with the filters in use.
+ */
+function useGroupOpen(active: boolean): [boolean, () => void] {
+  const [userOpen, setUserOpen] = useState<boolean | null>(null);
+  const open = userOpen ?? active;
+  return [open, () => setUserOpen(!open)];
+}
+
+function GroupHeader({
+  label,
+  open,
+  onToggle,
+  controls,
+  count,
+  onClear,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+  controls: string;
+  count: number;
+  onClear?: () => void;
+}) {
+  return (
+    <div className={styles.groupLegend}>
+      <button type="button" className={styles.groupToggle} aria-expanded={open} aria-controls={controls} onClick={onToggle}>
+        <ChevronRightIcon width={14} height={14} className={cx(styles.groupChevron, open && styles.groupChevronOpen)} aria-hidden="true" />
+        <span>{label}</span>
+      </button>
+      {count > 0 && (
+        <>
+          <b className={styles.groupCount}>{count}</b>
+          {onClear && (
+            <button type="button" className={styles.groupClear} onClick={onClear}>
+              Clear
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 interface MultiSelectProps {
   field: Extract<FilterField, { kind: "multi" }>;
   selected: readonly string[];
@@ -31,6 +77,8 @@ function MultiSelectGroup({ field, selected, onToggle, onClear }: MultiSelectPro
   const [expanded, setExpanded] = useState(false);
   const [optionQuery, setOptionQuery] = useState("");
   const searchId = useId();
+  const bodyId = useId();
+  const [open, toggleOpen] = useGroupOpen(selected.length > 0);
 
   const searchable = field.allowCustom || field.options.length >= SEARCHABLE_FROM;
   const typed = optionQuery.trim();
@@ -51,69 +99,53 @@ function MultiSelectGroup({ field, selected, onToggle, onClear }: MultiSelectPro
     collapsible && !expanded ? matching.filter((option, index) => index < COLLAPSED_OPTION_COUNT || selected.includes(option)) : matching;
 
   return (
-    <fieldset className={styles.group}>
-      <legend className={styles.groupLegend}>
-        <span>{field.label}</span>
-        {selected.length > 0 && (
-          <>
-            <b className={styles.groupCount}>{selected.length}</b>
-            <button type="button" className={styles.groupClear} onClick={onClear}>
-              Clear
-            </button>
-          </>
+    <div className={cx(styles.group, !open && styles.groupClosed)} role="group" aria-label={field.label}>
+      <GroupHeader label={field.label} open={open} onToggle={toggleOpen} controls={bodyId} count={selected.length} onClear={onClear} />
+
+      <div id={bodyId} hidden={!open} className={styles.groupBody}>
+        {searchable && (
+          <input
+            id={searchId}
+            type="search"
+            className={styles.optionSearch}
+            placeholder={field.allowCustom ? `Type a ${field.label.toLowerCase()}…` : `Find a ${field.label.toLowerCase()}…`}
+            aria-label={field.allowCustom ? `Type or find a ${field.label.toLowerCase()}` : `Find a ${field.label.toLowerCase()}`}
+            value={optionQuery}
+            onChange={(event) => setOptionQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                addTyped();
+              }
+            }}
+            autoComplete="off"
+          />
         )}
-      </legend>
 
-      {searchable && (
-        <input
-          id={searchId}
-          type="search"
-          className={styles.optionSearch}
-          placeholder={field.allowCustom ? `Type a ${field.label.toLowerCase()}…` : `Find a ${field.label.toLowerCase()}…`}
-          aria-label={field.allowCustom ? `Type or find a ${field.label.toLowerCase()}` : `Find a ${field.label.toLowerCase()}`}
-          value={optionQuery}
-          onChange={(event) => setOptionQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              addTyped();
-            }
-          }}
-          autoComplete="off"
-        />
-      )}
-
-      <div className={styles.chips}>
-        {visible.map((option) => {
-          const pressed = selected.includes(option);
-          return (
-            <button
-              key={option}
-              type="button"
-              className={cx(styles.chip, pressed && styles.chipOn)}
-              aria-pressed={pressed}
-              onClick={() => onToggle(option)}
-            >
-              {option}
+        <div className={styles.chips}>
+          {visible.map((option) => {
+            const pressed = selected.includes(option);
+            return (
+              <button key={option} type="button" className={cx(styles.chip, pressed && styles.chipOn)} aria-pressed={pressed} onClick={() => onToggle(option)}>
+                {option}
+              </button>
+            );
+          })}
+          {canAddTyped && (
+            <button type="button" className={styles.chip} onClick={addTyped}>
+              Add “{typed}”
             </button>
-          );
-        })}
-        {canAddTyped && (
-          <button type="button" className={styles.chip} onClick={addTyped}>
-            Add “{typed}”
+          )}
+          {visible.length === 0 && !canAddTyped && <span className={styles.noOptions}>{field.allowCustom ? "Type a value to add it." : "No matches."}</span>}
+        </div>
+
+        {collapsible && (
+          <button type="button" className={styles.showMore} onClick={() => setExpanded((value) => !value)}>
+            {expanded ? "Show fewer" : `Show all ${matching.length}`}
           </button>
         )}
-        {visible.length === 0 && !canAddTyped && (
-          <span className={styles.noOptions}>{field.allowCustom ? "Type a value to add it." : "No matches."}</span>
-        )}
       </div>
-
-      {collapsible && (
-        <button type="button" className={styles.showMore} onClick={() => setExpanded((value) => !value)}>
-          {expanded ? "Show fewer" : `Show all ${matching.length}`}
-        </button>
-      )}
-    </fieldset>
+    </div>
   );
 }
 
@@ -154,28 +186,30 @@ interface ChoiceGroupProps {
 }
 
 function ChoiceGroup({ field, value, onChange }: ChoiceGroupProps) {
-  const labelId = useId();
+  const bodyId = useId();
+  const active = value !== field.options[0]?.value;
+  const [open, toggleOpen] = useGroupOpen(active);
   return (
-    <div className={styles.group}>
-      <p id={labelId} className={styles.groupLegend}>
-        <span>{field.label}</span>
-      </p>
-      <div className={styles.segmented} role="radiogroup" aria-labelledby={labelId}>
-        {field.options.map((option) => {
-          const checked = option.value === value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={checked}
-              className={cx(styles.segment, checked && styles.segmentOn)}
-              onClick={() => onChange(option.value)}
-            >
-              {option.label}
-            </button>
-          );
-        })}
+    <div className={cx(styles.group, !open && styles.groupClosed)} role="group" aria-label={field.label}>
+      <GroupHeader label={field.label} open={open} onToggle={toggleOpen} controls={bodyId} count={active ? 1 : 0} />
+      <div id={bodyId} hidden={!open} className={styles.groupBody}>
+        <div className={styles.segmented} role="radiogroup" aria-label={field.label}>
+          {field.options.map((option) => {
+            const checked = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={checked}
+                className={cx(styles.segment, checked && styles.segmentOn)}
+                onClick={() => onChange(option.value)}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

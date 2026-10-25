@@ -29,12 +29,20 @@ describe("query interpretation", () => {
           unknownField: ["x"],
         },
         remaining_query: " recently raised a Series B ",
+        suggestions: [
+          { key: "seniorities", value: "c-team" },
+          { key: "seniorities", value: "VP" },
+          { key: "employees", value: "1000+" },
+          { key: "verifiedEmail", value: "true" },
+        ],
       },
       FIELDS,
     );
     expect(result).toEqual({
       filters: { seniorities: ["VP", "Director"], countries: ["United States"], titles: ["Head of Growth"], verifiedEmail: ["true"], jobChange: ["Last 90 days"] },
       remaining_query: "recently raised a Series B",
+      // Already-selected, unknown and non-multi suggestions are dropped.
+      suggestions: [{ key: "seniorities", value: "C-Team" }],
     });
   });
 
@@ -46,7 +54,7 @@ describe("query interpretation", () => {
       { kind: "choice", tab: "people", key: "jobChange", label: "Changed jobs", options: [{ value: "90", label: "Last 90 days" }] },
     ] as FilterField[];
     const base = { ...EMPTY_FILTERS, query: "VP in India", countries: ["United States"], employees: ["51 to 200"] };
-    const next = applyInterpretation(base, { filters: { seniorities: ["VP"], countries: ["India"], verifiedEmail: ["true"], jobChange: ["Last 90 days"] }, remaining_query: "" }, fields);
+    const next = applyInterpretation(base, { filters: { seniorities: ["VP"], countries: ["India"], verifiedEmail: ["true"], jobChange: ["Last 90 days"] }, remaining_query: "", suggestions: [] }, fields);
     expect(next).toMatchObject({ query: "", seniorities: ["VP"], countries: ["India"], employees: ["51 to 200"], verifiedEmail: true, jobChange: "90" });
   });
 });

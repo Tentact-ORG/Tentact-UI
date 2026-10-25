@@ -77,6 +77,8 @@ export interface InterpretResponse {
   filters: Record<string, string[]>;
   /** Criteria no filter expresses; kept as the search text. */
   remaining_query: string;
+  /** Related filter values to offer as one-click additions. */
+  suggestions: { key: string; value: string }[];
 }
 
 export interface RevealResponse {
