@@ -5,8 +5,6 @@ import { createPortal } from "react-dom";
 import { SITE } from "@/config/site";
 import { cx } from "@/lib/cx";
 import { handleDemoLinkClick } from "../DemoBooking/DemoBooking";
-import { Mascot, type MascotMood } from "./Mascot";
-import { RoamingMascot } from "./RoamingMascot";
 import styles from "./ChatAssistant.module.css";
 
 const BOT_NAME = SITE.assistantName;
@@ -30,7 +28,7 @@ const HISTORY = 10;
 const GREETING_DELAY_MS = 6000;
 
 /**
- * The landing page's chat assistant: an animated mascot launcher in the
+ * The landing page's chat assistant, Mivy: a launcher button in the
  * bottom-right corner that opens a small chat. Answers come from
  * /api/assistant (facts about The Tentact only); buying questions get a
  * button that opens the demo booking.
@@ -49,9 +47,6 @@ function ChatAssistantWidget() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [bubble, setBubble] = useState(false);
-  const [mood, setMood] = useState<MascotMood>("idle");
-  // Mivy is out roaming along the bottom of the screen (the badge shows a chat icon meanwhile).
-  const [away, setAway] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelId = useId();
@@ -83,7 +78,6 @@ function ChatAssistantWidget() {
     setMessages(next);
     setDraft("");
     setBusy(true);
-    setMood("thinking");
     try {
       const response = await fetch("/api/assistant", {
         method: "POST",
@@ -100,8 +94,6 @@ function ChatAssistantWidget() {
       setMessages((current) => [...current, { role: "assistant", content: "I couldn't reach the server. Check your connection, or book a demo below.", demo: true }]);
     } finally {
       setBusy(false);
-      setMood("happy");
-      window.setTimeout(() => setMood("idle"), 800);
     }
   };
 
@@ -111,15 +103,13 @@ function ChatAssistantWidget() {
   };
 
   const userHasAsked = messages.some((m) => m.role === "user");
-  // Thinking while a reply is on its way, attentive while the visitor types.
-  const liveMood: MascotMood = busy ? "thinking" : draft.trim() ? "listening" : mood;
 
   return (
     <div className={styles.root}>
       <section id={panelId} className={cx(styles.panel, open && styles.panelOpen)} aria-label={`Chat with ${BOT_NAME}`} aria-hidden={!open} inert={!open}>
         <header className={styles.head}>
           <div className={styles.avatar}>
-            <Mascot size={50} mood={liveMood} />
+            <span>{BOT_NAME.charAt(0)}</span>
           </div>
           <div className={styles.headText}>
             <p className={styles.name}>{BOT_NAME}</p>
@@ -148,11 +138,6 @@ function ChatAssistantWidget() {
               <span />
               <span />
               <span />
-            </div>
-          )}
-          {open && !userHasAsked && (
-            <div className={styles.stage} aria-hidden="true">
-              <RoamingMascot mode="stage" size={84} height={128} restingMood={liveMood} />
             </div>
           )}
           {!userHasAsked && (
@@ -200,7 +185,7 @@ function ChatAssistantWidget() {
 
       <button
         type="button"
-        className={cx(styles.launcher, open && styles.launcherOpen)}
+        className={styles.launcher}
         onClick={() => {
           setOpen((value) => !value);
           setBubble(false);
@@ -209,28 +194,12 @@ function ChatAssistantWidget() {
         aria-controls={panelId}
         aria-label={open ? `Close the chat with ${BOT_NAME}` : `Chat with ${BOT_NAME}, ${SITE.name}'s assistant`}
       >
-        <span className={styles.halo} aria-hidden="true" />
-        <span className={cx(styles.badge, away && styles.badgeEmpty)}>
-          <svg className={styles.badgeIcon} viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+        <span className={styles.badge}>
+          <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
             <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5v-8Z" fill="currentColor" />
           </svg>
         </span>
       </button>
-
-      {/* Mivy lives on this track: at rest in the badge, now and then out exploring to the left. */}
-      <div className={styles.roam}>
-        <RoamingMascot
-          mode="launcher"
-          size={58}
-          height={150}
-          homeFromRight={38}
-          homeLift={9}
-          homeOnly={open}
-          restingMood={liveMood}
-          followPointer={!open}
-          onAwayChange={setAway}
-        />
-      </div>
     </div>
   );
 }
