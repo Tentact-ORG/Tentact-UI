@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { SITE } from "@/config/site";
 import { cx } from "@/lib/cx";
 import { handleDemoLinkClick } from "../DemoBooking/DemoBooking";
 import { Mascot, type MascotMood } from "./Mascot";
+import { RoamingMascot } from "./RoamingMascot";
 import styles from "./ChatAssistant.module.css";
 
 const BOT_NAME = SITE.assistantName;
@@ -33,13 +35,23 @@ const GREETING_DELAY_MS = 6000;
  * /api/assistant (facts about The Tentact only); buying questions get a
  * button that opens the demo booking.
  */
+const subscribeNever = () => () => {};
+
 export function ChatAssistant() {
+  // Rendered into <body> after hydration so no page section's stacking context can cover it.
+  const mounted = useSyncExternalStore(subscribeNever, () => true, () => false);
+  return mounted ? createPortal(<ChatAssistantWidget />, document.body) : null;
+}
+
+function ChatAssistantWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([GREETING]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [bubble, setBubble] = useState(false);
   const [mood, setMood] = useState<MascotMood>("idle");
+  // Mivy is out roaming along the bottom of the screen (the badge shows a chat icon meanwhile).
+  const [away, setAway] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelId = useId();
@@ -138,9 +150,9 @@ export function ChatAssistant() {
               <span />
             </div>
           )}
-          {!userHasAsked && (
+          {open && !userHasAsked && (
             <div className={styles.stage} aria-hidden="true">
-              <Mascot size={112} mood={liveMood} followPointer={open} />
+              <RoamingMascot mode="stage" size={84} height={128} restingMood={liveMood} />
             </div>
           )}
           {!userHasAsked && (
@@ -198,10 +210,27 @@ export function ChatAssistant() {
         aria-label={open ? `Close the chat with ${BOT_NAME}` : `Chat with ${BOT_NAME}, ${SITE.name}'s assistant`}
       >
         <span className={styles.halo} aria-hidden="true" />
-        <span className={styles.badge}>
-          <Mascot size={58} mood={liveMood} followPointer={!open} />
+        <span className={cx(styles.badge, away && styles.badgeEmpty)}>
+          <svg className={styles.badgeIcon} viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5v-8Z" fill="currentColor" />
+          </svg>
         </span>
       </button>
+
+      {/* Mivy lives on this track: at rest in the badge, now and then out exploring to the left. */}
+      <div className={styles.roam}>
+        <RoamingMascot
+          mode="launcher"
+          size={58}
+          height={150}
+          homeFromRight={38}
+          homeLift={9}
+          homeOnly={open}
+          restingMood={liveMood}
+          followPointer={!open}
+          onAwayChange={setAway}
+        />
+      </div>
     </div>
   );
 }

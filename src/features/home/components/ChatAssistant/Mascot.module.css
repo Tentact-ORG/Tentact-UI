@@ -179,6 +179,22 @@
   animation: hop 0.7s cubic-bezier(0.3, 1.6, 0.5, 1) 1;
 }
 
+/* Something else (walking, running) drives the motion: keep only a light breath. */
+.moving .body {
+  animation: breathe 0.5s ease-in-out infinite;
+}
+
+.moving .shadow {
+  animation: none;
+  opacity: 0;
+}
+
+@keyframes breathe {
+  50% {
+    transform: scale(1.015, 0.985);
+  }
+}
+
 /* While the visitor types: leaning in, attentive, with a slow nod. */
 .listening .act {
   transform: rotate(-8deg) translateY(-3%);

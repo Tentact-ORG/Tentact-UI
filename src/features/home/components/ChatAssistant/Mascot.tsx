@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { cx } from "@/lib/cx";
 import styles from "./Mascot.module.css";
 
-export type MascotMood = "idle" | "thinking" | "happy" | "listening";
+export type MascotMood = "idle" | "thinking" | "happy" | "listening" | "moving";
 
 /** Playful moves played now and then on top of the idle motion, with their durations. */
 const ACTIONS = { hop: 900, wiggle: 800, lookLeft: 1600, lookRight: 1600, spin: 1100, stretch: 1300, doubleHop: 1300 } as const;
@@ -17,6 +17,8 @@ interface MascotProps {
   mood?: MascotMood;
   /** Tilts toward the pointer in 3D. */
   followPointer?: boolean;
+  /** Plays random moves while idle (off when something else drives the motion). */
+  actions?: boolean;
   className?: string;
 }
 
@@ -29,14 +31,14 @@ const MAX_TILT_DEG = 14;
  * Layers sit on the artwork's own features (eyes and star are measured on
  * /assets/mascot/tentact-mascot.png). Motion stops for prefers-reduced-motion.
  */
-export function Mascot({ size, mood = "idle", followPointer = false, className }: MascotProps) {
+export function Mascot({ size, mood = "idle", followPointer = false, actions = true, className }: MascotProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const gradientId = `mascot-star-${useId().replace(/:/g, "")}`;
   const [action, setAction] = useState<MascotAction | null>(null);
 
   // Every few seconds (while idle), play a random move so the mascot always feels alive.
   useEffect(() => {
-    if (mood !== "idle" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!actions || mood !== "idle" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let timer = 0;
     let last: MascotAction | null = null;
     const schedule = (delay: number) => {
@@ -52,8 +54,11 @@ export function Mascot({ size, mood = "idle", followPointer = false, className }
       }, delay);
     };
     schedule(1200 + Math.random() * 1800);
-    return () => window.clearTimeout(timer);
-  }, [mood]);
+    return () => {
+      window.clearTimeout(timer);
+      setAction(null);
+    };
+  }, [mood, actions]);
 
   useEffect(() => {
     const root = rootRef.current;
