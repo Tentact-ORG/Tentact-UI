@@ -34,6 +34,13 @@ export function contactIdOf(record: Record<string, unknown>): string | null {
   return null;
 }
 
+const isPresent = (value: unknown) => value !== null && value !== undefined && String(value).trim() !== "";
+
+/** Whether the row has a value in any contact-detail column: only those cost credits to reveal or export. */
+export function hasContactDetails(record: Record<string, unknown>, detailColumns: readonly string[]): boolean {
+  return detailColumns.some((column) => isPresent(record[column]));
+}
+
 export function maskEmail(value: string): string {
   const at = value.indexOf("@");
   if (at <= 0) return "•••";
@@ -91,27 +98,37 @@ export interface MaskedRecords {
   resultId: string | null;
   /** Contacts in this page whose details the organization already paid for (shown unmasked). */
   revealedIds: string[];
+  /** Contacts in this page whose details are masked: exactly the ids the reveal endpoint accepts. */
+  maskedIds: string[];
   masked: boolean;
 }
 
 /** Masks the contact details in search result rows the organization hasn't revealed yet. */
 export async function maskSearchRecords(orgId: number, records: Record<string, unknown>[]): Promise<MaskedRecords> {
-  if (!creditService.enabled || records.length === 0) return { records, resultId: null, revealedIds: [], masked: false };
+  const unmasked = { records, resultId: null, revealedIds: [], maskedIds: [], masked: false };
+  if (!creditService.enabled || records.length === 0) return unmasked;
   const detailColumns = Object.keys(records[0]).filter(isContactDetailColumn);
-  if (detailColumns.length === 0) return { records, resultId: null, revealedIds: [], masked: false };
+  if (detailColumns.length === 0) return unmasked;
 
   const ids = records.map(contactIdOf);
   const revealed = await creditService.revealedAmong(orgId, ids.filter((id): id is string => id !== null));
+  // Only rows with a contact detail to hide are masked and revealable; the rest have nothing to pay for.
   const details = new Map<string, Record<string, unknown>>();
   const masked = records.map((record, index) => {
     const id = ids[index];
+    if (!hasContactDetails(record, detailColumns) || (id !== null && revealed.has(id))) return record;
     if (id !== null) details.set(id, Object.fromEntries(detailColumns.map((column) => [column, record[column]])));
-    if (id !== null && revealed.has(id)) return record;
     const copy = { ...record };
     for (const column of detailColumns) copy[column] = maskValue(column, record[column]);
     return copy;
   });
-  return { records: masked, resultId: details.size > 0 ? revealable.store(orgId, details) : null, revealedIds: [...revealed], masked: true };
+  return {
+    records: masked,
+    resultId: details.size > 0 ? revealable.store(orgId, details) : null,
+    revealedIds: [...revealed],
+    maskedIds: [...details.keys()],
+    masked: true,
+  };
 }
 
 /**

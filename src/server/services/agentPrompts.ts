@@ -15,6 +15,12 @@ Rules:
      * \`technology\` is Array(Tuple(keyword_id, keyword_slug)): match with \`arrayExists(t -> t.keyword_slug = 'salesforce', technology)\`. \`job_openings\` is Array(Tuple(job_title, date_posted, description, salary_string, location)): a company is hiring when \`notEmpty(job_openings)\`.
    - Columns listed under "Empty Columns" in the request context contain no data: never filter on them, because the query would return zero rows. Say so in \`assumptions\` instead.
    - Apply EVERY criterion in the natural query IN ADDITION to the structured filters: the structured filters never replace words in the natural query. Map words in the request onto the exact values listed under "Verified Distinct Values" (e.g. "marketing leaders" → \`JOB_FUNCTION_PER = 'Advertising & Marketing'\` or the matching \`PERSONA_PER\` values; "founders" → \`PERSONA_PER = 'CEO / Founder'\`). Use \`ilike\` only when no listed value fits.
+   - CANONICAL FILTERS (the same request must always produce the same filter; never add alternatives beyond these forms):
+     * A value that appears in the verified vocabulary is matched with equality or IN, never with an additional \`ilike\` alternative (e.g. \`COUNTRY_NAME_PER = 'United States'\`, not \`... OR ilike(COUNTRY_NAME_PER, '%United States%')\`).
+     * A job function or department criterion is \`(JOB_FUNCTION_PER = '<function>' OR PERSONA_PER IN (<every listed persona value belonging to that function>))\`.
+     * SENIORITY WORDS: "leaders", "heads", "executives", "decision makers" of a function mean that function group AND \`JOB_LEVEL_PER IN ('C-Team', 'VP', 'Director')\`; "managers" means \`JOB_LEVEL_PER = 'Manager'\`. The level applies to the whole function group (personas included).
+     * A specific title ("CTOs", "CMOs", "founders") maps to its persona value (e.g. \`PERSONA_PER = 'CIO / CTO / Technology Executive'\`), not to \`ilike\` on JOB_TITLE_PER; use JOB_TITLE_PER only when no persona value fits.
+     * An industry criterion on contacts is \`(ilike(INDUSTRY_LINKEDIN_ORG, '%<Industry>%') OR RBID_ORG IN (SELECT id FROM company_data WHERE arrayExists(i -> ilike(i, '%<Industry>%'), industry)))\` for each mapped LinkedIn industry, using only the industries the taxonomy mapping below names for the request's term.
    - STRICT PROHIBITION: DO NOT use any other tables (e.g. do not query \`job_change\` or duplicate tables).
 2. DO NOT INVENT tables, columns, or join paths.
 3. USE APPROVED JOINS ONLY: Joins must match approved relationships provided in context.
@@ -34,7 +40,7 @@ Rules:
    - The column \`INDUSTRY_LINKEDIN_ORG\` contains official LinkedIn industry names. Buzzwords like 'Fintech', 'SaaS', 'AI' are NOT distinct LinkedIn industries:
      * "Fintech": Filter using \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Financial Services%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Banking%'))\`. NEVER filter solely on \`ilike(INDUSTRY_LINKEDIN_ORG, '%Fintech%')\` (which returns 0 rows) and avoid scanning ABOUT_US_ORG (which times out).
      * "AI" / "Artificial Intelligence": Filter using \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Software Development%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Technology%'))\`.
-     * "SaaS": Filter using \`ilike(INDUSTRY_LINKEDIN_ORG, '%Software Development%')\`.
+     * "SaaS", "software", "software companies": the 'Software Development' industry only (not 'Technology' or other adjacent industries).
      * "EdTech": Filter using \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Education%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%E-Learning%'))\`.
      * "HealthTech": Filter using \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Hospitals and Health Care%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Biotechnology%'))\`.
    - The same taxonomy mapping applies to \`company_data.industry\` entries.
@@ -64,10 +70,13 @@ Your evaluation must verify:
    - NOTE ON LINKEDIN INDUSTRY TAXONOMY: The dataset uses official LinkedIn industry categories where buzzwords do NOT exist as standalone categories:
      * "Fintech": Mapped to \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Financial Services%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Banking%'))\`. This accurately implements the Fintech requirement and MUST be APPROVED. (Do NOT reject queries that use Financial Services or Banking for Fintech).
      * "AI" / "Artificial Intelligence": Mapped to \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Software Development%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Technology%'))\`.
-     * "SaaS": Mapped to \`ilike(INDUSTRY_LINKEDIN_ORG, '%Software Development%')\`.
+     * "SaaS", "software", "software companies": Mapped to the 'Software Development' industry. Adding 'Technology' or other adjacent industries broadens the request: list it as an issue.
      * "EdTech": Mapped to \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Education%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%E-Learning%'))\`.
      * "HealthTech": Mapped to \`(ilike(INDUSTRY_LINKEDIN_ORG, '%Hospitals and Health Care%') OR ilike(INDUSTRY_LINKEDIN_ORG, '%Biotechnology%'))\`.
-     The same mappings applied to \`company_data.industry\` (an array, matched with hasAny or arrayExists) are equally valid.
+     The same mappings applied to \`company_data.industry\` (an array, matched with hasAny or arrayExists) are equally valid, and the canonical form ORs both: \`(ilike(INDUSTRY_LINKEDIN_ORG, '%X%') OR RBID_ORG IN (SELECT id FROM company_data WHERE arrayExists(i -> ilike(i, '%X%'), industry)))\`.
+   - Seniority words follow one definition: "leaders", "heads", "executives", "decision makers" of a function = that function (and its personas) with \`JOB_LEVEL_PER IN ('C-Team', 'VP', 'Director')\`; "managers" = \`JOB_LEVEL_PER = 'Manager'\`. A specific title such as "CTOs" is satisfied by its persona value (e.g. 'CIO / CTO / Technology Executive') without a level filter. Approve queries that follow this definition; don't ask for other levels. Managers are not leaders.
+   - Locations ("in India", "US-based") apply to the contact (\`COUNTRY_NAME_PER\`) unless the request explicitly says the company is headquartered there; don't require a headquarters filter otherwise.
+   - \`RBID_ORG IN (SELECT id FROM company_data WHERE ...)\` is the sanctioned enrichment lookup, not a join: it needs no entry in the approved relationships registry and must not be rejected for that reason.
    - Discrete employee ranges (e.g. \`EMPLOYEE_COUNT_RANGE_ORG IN ('51 to 200', ...)\`) accurately implement numeric employee criteria (e.g. > 50 employees).
 2. TARGET TABLES & IDENTIFIERS:
    - Contacts / Leads: Target table MUST be \`new_combined_data\`. The valid primary identifier is \`RBID_PER\` (or \`RBID_PER AS contact_id\`). Accept either form as satisfying the contact identifier requirement.
@@ -91,7 +100,7 @@ Output strictly in JSON format matching SQLReviewerOutput:
   "is_read_only": boolean,
   "has_correct_grain": boolean,
   "issues": ["list of concrete findings if any"],
-  "reasoning": "Detailed justification of your verdict",
+  "reasoning": "At most 60 words: the verdict's key justification",
   "clarification_question": "optional question if ambiguity exists"
 }
 `;

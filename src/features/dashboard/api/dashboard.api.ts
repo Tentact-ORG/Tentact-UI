@@ -59,6 +59,8 @@ export interface SearchResponse {
   result_id: string | null;
   /** Contacts the workspace already paid for (shown unmasked). */
   revealed_ids: string[];
+  /** Contacts whose details are masked in this page: the ids `reveal` accepts. */
+  masked_ids: string[];
   contact_details_masked: boolean;
 }
 

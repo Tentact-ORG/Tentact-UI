@@ -24,6 +24,7 @@ export const POST = route(async (request) => {
       records: masked.records,
       result_id: masked.resultId,
       revealed_ids: masked.revealedIds,
+      masked_ids: masked.maskedIds,
       contact_details_masked: masked.masked,
     });
   } catch (err) {

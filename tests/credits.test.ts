@@ -10,7 +10,7 @@ import { getCodec, getDb } from "@/server/core/database";
 import { hashPassword } from "@/server/core/security";
 import { toUser, type User } from "@/server/models/entities";
 import { searchRequestSchema } from "@/server/schemas/search";
-import { contactIdOf, maskEmail, maskPhone } from "@/server/services/contactMasking";
+import { contactIdOf, maskEmail, maskPhone, maskSearchRecords, revealContacts } from "@/server/services/contactMasking";
 import { creditService, InsufficientCreditsError } from "@/server/services/creditService";
 import { exportService } from "@/server/services/exportService";
 import { searchPlanCache } from "@/server/services/searchPlanCache";
@@ -129,6 +129,21 @@ describe("credits", () => {
     await exportService.createExportJob(request, seed.member.id, seed.org1.id, "MEMBER", 10);
     await exportService.drain();
     expect(await creditService.balance(seed.org1.id)).toBe(balance);
+  });
+
+  it("doesn't mask or charge contacts that have no email or phone", async () => {
+    const records = [
+      { RBID_PER: "with-email", EMAIL_ADDRESS_PER: "maya@northwind.example", CELLPHONE_PER: null, EMAIL_STATUS_PER: "VALID" },
+      { RBID_PER: "empty", EMAIL_ADDRESS_PER: "", CELLPHONE_PER: null, EMAIL_STATUS_PER: "" },
+    ];
+    const masked = await maskSearchRecords(seed.org1.id, records);
+    expect(masked.maskedIds).toEqual(["with-email"]);
+    expect(masked.records[0].EMAIL_ADDRESS_PER).toBe("ma•••@northwind.example");
+    expect(masked.records[1]).toEqual(records[1]);
+
+    await creditService.grant(seed.org1.id, 5, null, "test");
+    await expect(revealContacts(seed.org1.id, seed.member.id, masked.resultId!, ["empty"])).rejects.toMatchObject({ status: 422 });
+    expect(await revealContacts(seed.org1.id, seed.member.id, masked.resultId!, ["with-email"])).toMatchObject({ charged: 1, balance: 4 });
   });
 
   it("never spends more than the balance under concurrent charges", async () => {

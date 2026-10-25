@@ -12,7 +12,7 @@ import type { SearchRequest } from "../schemas/search";
 import { auditService } from "./auditService";
 import { chService } from "./clickhouseClient";
 import { rewriteOuterLimit } from "./clickhouseSql";
-import { contactIdOf, isContactDetailColumn } from "./contactMasking";
+import { contactIdOf, hasContactDetails, isContactDetailColumn } from "./contactMasking";
 import { creditService } from "./creditService";
 import { sanitizeClickhouseSql } from "./queryExecutor";
 import { schemaDiscoveryService } from "./schemaDiscovery";
@@ -177,11 +177,14 @@ class ExportService {
       const { columns, rows } = await chService.executeQuery(exportSql, parameters, 60);
 
       // Contact details are paid for: charge for contacts this workspace hasn't revealed before.
-      if (creditService.enabled && columns.some(isContactDetailColumn)) {
-        const idIndex = columns.findIndex((column) => contactIdOf({ [column]: "x" }) !== null);
-        if (idIndex === -1) throw new PolicyViolationError("The export contains contact details but no contact id, so it can't be charged.");
-        const ids = rows.map((row) => String(row[idIndex] ?? "").trim()).filter(Boolean);
-        await creditService.chargeForContacts(job.org_id, job.user_id, ids, "export", `export:${jobId}`);
+      // Rows without any contact detail value are free.
+      const detailColumns = columns.filter(isContactDetailColumn);
+      if (creditService.enabled && detailColumns.length > 0) {
+        const records = rows.map((row) => Object.fromEntries(columns.map((column, i) => [column, row[i]])));
+        const charged = records.filter((record) => hasContactDetails(record, detailColumns));
+        const ids = charged.map(contactIdOf);
+        if (ids.some((id) => id === null)) throw new PolicyViolationError("The export contains contact details but no contact id, so it can't be charged.");
+        await creditService.chargeForContacts(job.org_id, job.user_id, ids as string[], "export", `export:${jobId}`);
       }
 
       const storageDir = resolveFromCwd(getSettings().EXPORT_STORAGE_PATH);

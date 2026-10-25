@@ -182,13 +182,19 @@ class SearchOrchestrationWorkflow {
 
     while (repairAttempts <= this.maxRepairs) {
       // 1. SQL Generator Agent (told why the previous attempt failed, on repairs)
+      const genStart = performance.now();
       const genOutput: SQLGeneratorOutput = await sqlGeneratorAgent.generateSql(rep, request.natural_query, lastErrorContext);
+      const genMs = Math.round(performance.now() - genStart);
       if (genOutput.unresolved_ambiguities.length > 0) {
         return this.clarificationResponse(rep, start, genOutput.assumptions, genOutput.unresolved_ambiguities.join("; "));
       }
 
       // 2. Independent SQL Reviewer Agent
+      const reviewStart = performance.now();
       const review: SQLReviewerOutput = await sqlReviewerAgent.reviewSql(rep, genOutput, request.natural_query);
+      logger.info(
+        `[SEARCH ORCHESTRATOR] attempt ${repairAttempts + 1}: generator ${genMs} ms, reviewer ${Math.round(performance.now() - reviewStart)} ms, verdict ${review.verdict}`,
+      );
 
       if (review.verdict === "CLARIFICATION_REQUIRED") {
         const question = review.clarification_question || review.reasoning;

@@ -123,12 +123,12 @@ export function useProspectSearch(countries: CountryNames) {
           return;
         }
         const offset = (page - 1) * response.page_size;
-        const revealedIds = new Set(response.revealed_ids);
+        const maskedIds = new Set(response.masked_ids);
         if (!appending) rows.current.clear();
         const loaded = response.records.map((record, index) => {
           const prospect = recordToProspect(record, offset + index);
           rows.current.set(prospect.id, { row: record, index: offset + index });
-          const masked = response.contact_details_masked && response.result_id !== null && !revealedIds.has(prospect.id);
+          const masked = response.result_id !== null && maskedIds.has(prospect.id);
           return masked ? { ...prospect, contactMasked: true, resultId: response.result_id } : prospect;
         });
         setState((current) => {
