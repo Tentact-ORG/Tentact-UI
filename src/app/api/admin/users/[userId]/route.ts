@@ -44,3 +44,42 @@ export const PATCH = route<{ userId: string }>(async (request, { params }) => {
   });
   return json(toUserResponse(user));
 });
+
+/**
+ * Deletes a user of the administrator's organization. Their saved searches,
+ * lists, export jobs and top-up requests go with them; credit history,
+ * revealed contacts and audit events stay with the workspace (unlinked).
+ * Admins can't delete themselves or the workspace's last active admin.
+ */
+export const DELETE = route<{ userId: string }>(async (request, { params }) => {
+  const admin = await requireAdmin(request);
+  const userId = intParam(params.userId, "user_id");
+  const db = getDb();
+  const codec = getCodec();
+
+  const target = await db.selectFrom("users").selectAll().where("id", "=", userId).where("org_id", "=", admin.org_id).executeTakeFirst();
+  if (!target) throw new HttpError(404, "User not found");
+  if (target.id === admin.id) throw new HttpError(400, "You can't delete your own account");
+  const user = toUser(codec, target);
+  if (user.role === "ADMIN" && user.is_active) {
+    const admins = await db
+      .selectFrom("users")
+      .select(({ fn }) => fn.countAll<number>().as("n"))
+      .where("org_id", "=", admin.org_id)
+      .where("role", "=", "ADMIN")
+      .where("is_active", "=", codec.bool(true))
+      .executeTakeFirstOrThrow();
+    if (Number(admins.n) <= 1) throw new HttpError(400, "This is the workspace's last active admin");
+  }
+
+  await db.deleteFrom("users").where("id", "=", userId).execute();
+  await auditService.logEvent({
+    action: "DELETE_USER",
+    resource: `user:${userId}`,
+    status: "SUCCESS",
+    orgId: admin.org_id,
+    userId: admin.id,
+    details: { deleted_email: user.email, role: user.role },
+  });
+  return json({ id: userId, deleted: true });
+});

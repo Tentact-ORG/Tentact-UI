@@ -6,7 +6,7 @@ import { PATCH as updateRelationship } from "@/app/api/admin/relationships/[rela
 import { GET as listRelationships } from "@/app/api/admin/relationships/route";
 import { PATCH as updateColumn } from "@/app/api/admin/schema/columns/[columnId]/route";
 import { GET as listColumns } from "@/app/api/admin/schema/columns/route";
-import { PATCH as updateUser } from "@/app/api/admin/users/[userId]/route";
+import { DELETE as deleteUser, PATCH as updateUser } from "@/app/api/admin/users/[userId]/route";
 import { POST as createUser } from "@/app/api/admin/users/route";
 import { POST as login } from "@/app/api/auth/login/route";
 import { sanitizeAuditDetails } from "@/server/services/auditService";
@@ -114,6 +114,24 @@ describe("admin console & audit", () => {
       params: { userId: String(seed.org2Member.id) },
     });
     expect(crossTenant.status).toBe(404);
+  });
+
+  it("deletes users in the organization, but not yourself or another workspace's", async () => {
+    const headers = await authHeaders(seed.admin);
+    const self = await callRoute(deleteUser, { method: "DELETE", headers, params: { userId: String(seed.admin.id) } });
+    expect(self.status).toBe(400);
+    const crossTenant = await callRoute(deleteUser, { method: "DELETE", headers, params: { userId: String(seed.org2Member.id) } });
+    expect(crossTenant.status).toBe(404);
+
+    const deleted = await callRoute(deleteUser, { method: "DELETE", headers, params: { userId: String(seed.member.id) } });
+    expect(deleted.status).toBe(200);
+    expect(deleted.body).toEqual({ id: seed.member.id, deleted: true });
+    const gone = await callRoute(login, { method: "POST", body: { email: "member@acme.com", password: "member_secure_password_123" } });
+    expect(gone.status).toBe(401);
+    expect((await callRoute(deleteUser, { method: "DELETE", headers, params: { userId: String(seed.member.id) } })).status).toBe(404);
+
+    const memberHeaders = await authHeaders(seed.org2Member);
+    expect((await callRoute(deleteUser, { method: "DELETE", headers: memberHeaders, params: { userId: String(seed.admin.id) } })).status).toBe(403);
   });
 
   it("records audited actions per organization", async () => {

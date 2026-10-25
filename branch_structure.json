@@ -1,0 +1,21 @@
+{
+  "default_branch": "Tentact-landing_page",
+  "branches": [
+    "Tentact-landing_page",
+    "backend-tentach",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "Tentact-landing_page": null,
+    "backend-tentach": "Tentact-landing_page",
+    "main": "Tentact-landing_page",
+    "origin": "Tentact-landing_page"
+  },
+  "order": [
+    "Tentact-landing_page",
+    "backend-tentach",
+    "main",
+    "origin"
+  ]
+}
