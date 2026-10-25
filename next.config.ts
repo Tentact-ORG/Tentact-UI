@@ -45,6 +45,14 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Self-contained server bundle for the Docker image; `next start` is used locally.
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
+  // Native / Node-only packages used by the API layer are loaded from node_modules at runtime, not bundled.
+  serverExternalPackages: ["better-sqlite3", "@node-rs/argon2", "pg", "@clickhouse/client", "@anthropic-ai/sdk", "openai"],
+  // Files read at runtime that output tracing cannot discover on its own.
+  outputFileTracingIncludes: {
+    "/api/**/*": ["./database/synthetic_seed_data.json"],
+  },
   // Ship minified bundles only; source maps would hand the original TypeScript to anyone who opens devtools.
   productionBrowserSourceMaps: false,
   async headers() {

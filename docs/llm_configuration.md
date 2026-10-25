@@ -1,0 +1,68 @@
+# LLM Provider Configuration & Privacy Guidelines
+
+The LeadGen AI Platform features a **provider-independent LLM architecture** (`src/server/services/llmAdapter.ts`). The business logic does not depend on any specific AI vendor, so providers can be switched through configuration.
+
+---
+
+## 1. Supported Providers
+
+1. **`mock`** (default for tests and offline development)
+   - Deterministic and local; no API keys, no network.
+   - Models both Agent 1 (SQL Generator) and Agent 2 (SQL Reviewer) for the synthetic schema.
+
+2. **`groq`**
+   - OpenAI-compatible chat completions with JSON mode.
+   - Default model when `LLM_MODEL` is left unset: `openai/gpt-oss-120b`.
+   - Rate limits (HTTP 429) are retried up to 5 times, honouring `retry-after`.
+
+3. **`openai`** (or any OpenAI-compatible endpoint via `OPENAI_BASE_URL`)
+   - Uses JSON mode (`response_format: { type: "json_object" }`). Default model: `gpt-4o-mini`.
+
+4. **`anthropic`**
+   - Uses the official `@anthropic-ai/sdk`. Default model: `claude-opus-5-5`.
+   - Sampling parameters are not sent (`LLM_TEMPERATURE` does not apply); responses may include thinking blocks, and only the text content is used.
+   - For models that support it, server-side refusal fallback (`fallbacks: "default"`) is enabled so a declined request is retried on Anthropic's recommended fallback model; a refusal that still stands is reported as an error.
+
+5. **`gemini`**
+   - Uses structured generation (`responseMimeType: "application/json"`). Default model: `gemini-1.5-pro`; set `LLM_MODEL` to a currently available Gemini model.
+   - The API key is sent in the `x-goog-api-key` header, never in the URL.
+
+---
+
+## 2. Configuration Examples
+
+### Groq
+```bash
+LLM_PROVIDER=groq
+LLM_MODEL=openai/gpt-oss-120b
+GROQ_API_KEY=gsk_...
+```
+
+### OpenAI
+```bash
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o-mini
+OPENAI_API_KEY=sk-...
+```
+
+### Anthropic
+```bash
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-opus-5-5
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### Gemini
+```bash
+LLM_PROVIDER=gemini
+LLM_MODEL=<gemini model id>
+GEMINI_API_KEY=AIza...
+```
+
+---
+
+## 3. Privacy & Minimal Data Exposure
+
+- **No raw lead rows or personal contact data** are ever sent to LLMs.
+- Prompts contain only discovered table and column names, column types, approved relationships, and a bounded sample of verified categorical values (e.g. industry names).
+- API keys stay on the server; browsers never call LLM endpoints. Provider error responses are logged server-side and surfaced to clients only as a generic status message.

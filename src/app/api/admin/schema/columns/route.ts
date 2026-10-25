@@ -1,0 +1,20 @@
+import { requireAuditorOrAdmin } from "@/server/api/deps";
+import { json, route } from "@/server/api/handler";
+import { getCodec, getDb } from "@/server/core/database";
+import { toDiscoveredColumn } from "@/server/models/entities";
+import { toDiscoveredColumnResponse } from "@/server/schemas/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export const GET = route(async (request) => {
+  await requireAuditorOrAdmin(request);
+  const codec = getCodec();
+  const rows = await getDb()
+    .selectFrom("discovered_schemas")
+    .selectAll()
+    .orderBy("table_name")
+    .orderBy("column_name")
+    .execute();
+  return json(rows.map((row) => toDiscoveredColumnResponse(toDiscoveredColumn(codec, row))));
+});

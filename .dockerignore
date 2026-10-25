@@ -1,0 +1,15 @@
+.git
+.next
+node_modules
+venv
+backend
+tests
+.pytest_cache
+**/__pycache__
+*.db
+*.db-*
+exports_storage
+.env
+.env.*
+!.env.example
+.DS_Store

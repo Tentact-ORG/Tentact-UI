@@ -23,3 +23,18 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local data and runtime artifacts (never commit)
+*.db
+*.db-wal
+*.db-shm
+exports_storage/
+.env
+
+# Legacy Python implementation (kept locally only; superseded by src/server)
+venv/
+backend/
+tests/*.py
+scripts/*.py
+__pycache__/
+.pytest_cache/

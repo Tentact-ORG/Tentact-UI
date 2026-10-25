@@ -1,0 +1,68 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: leadgen-clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      - CLICKHOUSE_DB=leadgen_warehouse
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./database/clickhouse_synthetic_seed.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: leadgen-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=leadgen_app
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres_secure_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d leadgen_app"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: leadgen-app
+    ports:
+      - "3000:3000"
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres_secure_pass@postgres:5432/leadgen_app
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+      - CLICKHOUSE_DATABASE=leadgen_warehouse
+      # Replace with a unique random value of at least 32 characters.
+      - JWT_SECRET_KEY=leadgen_super_secret_jwt_key_change_in_production_min32chars
+      - LLM_PROVIDER=mock
+      - EXPORT_STORAGE_PATH=/app/exports_storage
+    volumes:
+      - exports_data:/app/exports_storage
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+volumes:
+  clickhouse_data:
+  postgres_data:
+  exports_data:
