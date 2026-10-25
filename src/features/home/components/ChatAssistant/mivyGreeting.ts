@@ -1,6 +1,9 @@
 /**
  * Mivy's "Hi!" wave: one timeline for the arm, the body and the eyes, and a
- * renderer that bends the arm like a soft limb.
+ * renderer that bends the arm like a soft limb. Mivy is sleepy, so the wave
+ * is a lazy "heyyy": a look and a slow blink first, the arm drifts up to
+ * about head height, a few small flaps that run out of energy, and the arm
+ * flops back down under its own weight.
  *
  * The arm is a single image drawn row by row along a curve. Bending is spread
  * over the shoulder, elbow and wrist instead of hinging two rigid pieces, so
@@ -8,7 +11,7 @@
  * leaves the body. All coordinates are in the 474×600 artwork space.
  */
 
-export const GREETING_MS = 3200;
+export const GREETING_MS = 4300;
 
 /** Where mivy-arm.png sits on the artwork, and the joints along it (artwork y). */
 export const ARM = { x: 141, y: 195, w: 63, h: 258, src: "/assets/mivy/mivy-arm.png" };
@@ -42,48 +45,74 @@ const smooth = (a: number, b: number, t: number) => {
   const x = clamp01((t - a) / (b - a));
   return x * x * (3 - 2 * x);
 };
-const easeInOut = (a: number, b: number, t: number) => {
+/** Slow in, slow out: the weighted, unhurried ease used for every big move. */
+const ease = (a: number, b: number, t: number) => {
   const x = clamp01((t - a) / (b - a));
-  return x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2;
-};
-/** Rises with a small overshoot that settles (ease-out-back). */
-const rise = (a: number, b: number, t: number) => {
-  const x = clamp01((t - a) / (b - a));
-  const c = 1.5;
-  return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2;
+  return x < 0.5 ? 16 * x ** 5 : 1 - (-2 * x + 2) ** 5 / 2;
 };
 const bump = (a: number, b: number, t: number) => (t <= a || t >= b ? 0 : Math.sin(((t - a) / (b - a)) * Math.PI) ** 2);
+/** A soft, damped wobble starting at `a`: how a floppy limb or fluffy body settles. */
+const wobble = (a: number, t: number, period: number, decay: number) =>
+  t <= a ? 0 : Math.sin(((t - a) / period) * 2 * Math.PI) * Math.exp(-(t - a) / decay);
+
+/** Small per-greeting differences so Mivy never waves exactly the same way twice. */
+export interface GreetingVariation {
+  /** Wave size and speed multipliers, and a delay (ms) before the arm moves. */
+  size: number;
+  speed: number;
+  delay: number;
+}
+
+export const STEADY: GreetingVariation = { size: 1, speed: 1, delay: 0 };
+
+export function randomVariation(): GreetingVariation {
+  return { size: 0.85 + Math.random() * 0.3, speed: 0.9 + Math.random() * 0.2, delay: Math.random() * 160 };
+}
 
 /** The pose `t` ms into the greeting. */
-export function greetingPose(t: number): GreetingPose {
+export function greetingPose(t: number, v: GreetingVariation = STEADY): GreetingPose {
   if (t <= 0 || t >= GREETING_MS) return REST;
-  const omega = (2 * Math.PI * 2.1) / 1000; // ~2 waves a second, like a person
-  const phase = omega * (t - 720);
+  const d = v.delay;
 
-  const crouch = bump(0, 300, t); // the little dip before the arm goes up
-  const lower = easeInOut(2480, 3080, t);
-  const lowerLate = easeInOut(2560, 3160, t); // the forearm follows the upper arm down
-  const raised = rise(170, 720, t) * (1 - lower);
-  const raisedLate = rise(250, 820, t) * (1 - lowerLate); // ...and up
-  const waving = smooth(620, 900, t) * (1 - smooth(2200, 2520, t));
-  const settle = bump(2950, 3200, t);
+  // The arm drifts up slowly with the elbow folding as it goes (so the hand
+  // comes up beside the head instead of pointing out), holds a beat, and later
+  // flops down with the elbow unfolding a little behind it; ease() gives every
+  // move a slow start and a soft stop.
+  const up = ease(400 + d, 1400 + d, t);
+  const upLate = ease(330 + d, 1300 + d, t);
+  const down = ease(3180, 3900, t);
+  const downLate = ease(3260, 4000, t);
+  const raised = up * (1 - down);
+  const raisedLate = upLate * (1 - downLate);
 
-  // Overlapping action: the upper arm sways a little, the forearm swings from
-  // the elbow, and the hand flaps a beat behind it.
-  const shoulder = 128 * raised - 9 * crouch + 4 * Math.sin(phase) * waving - 4 * settle;
-  const elbow = 52 * raisedLate + 6 * crouch + 15 * Math.sin(phase - 0.5) * waving;
-  const wrist = -10 * bump(170, 650, t) + 26 * Math.sin(phase - 1.5) * waving + 8 * bump(2480, 2950, t);
+  // Two and a half small flaps from the wrist that lose energy, with the
+  // forearm following a little and the hand trailing behind it.
+  const waveStart = 1560 + d;
+  const flapping = smooth(waveStart - 120, waveStart + 260, t) * (1 - smooth(2780, 3080, t));
+  const phase = ((2 * Math.PI * 1.55 * v.speed) / 1000) * (t - waveStart);
+  const tired = 1 - 0.45 * clamp01((t - waveStart) / 1400); // each flap a bit lazier
+  const flap = Math.sin(phase + 0.25 * Math.sin(phase * 0.5)) * flapping * tired * v.size;
+  const flapLate = Math.sin(phase - 1.1 + 0.25 * Math.sin(phase * 0.5)) * flapping * tired * v.size;
 
-  return {
-    shoulder,
-    elbow,
-    wrist,
-    lean: 2.6 * raised + 1.1 * Math.sin(phase - 0.9) * waving,
-    lift: 0.8 * crouch - 1.2 * bump(250, 900, t) - 0.35 * Math.abs(Math.sin(phase)) * waving + 0.4 * settle,
-    squash: 0.03 * crouch + 0.012 * settle,
-    lid: Math.max(bump(90, 300, t), 0.3 * waving),
-    attention: smooth(0, 300, t) * (1 - smooth(2700, 3200, t)),
-  };
+  // After it drops, the arm swings a little past rest and wobbles still.
+  const flop = wobble(3880, t, 520, 230);
+
+  const shoulder = 80 * raised + 2.5 * flap - 7 * flop;
+  const elbow = 80 * raisedLate + 9 * flap - 6 * flop;
+  const wrist = -8 * bump(500 + d, 1500 + d, t) + 20 * flapLate + 10 * bump(3180, 3800, t) - 8 * wobble(3960, t, 460, 200);
+
+  // Body: shifts its weight away from the arm as it rises (a touch behind
+  // it), sways softly with the flaps, and squashes as the arm drops.
+  const lean = 1.7 * ease(480 + d, 1650 + d, t) * (1 - ease(3260, 4060, t)) + 0.5 * flapLate - 0.8 * wobble(3900, t, 640, 260);
+  const lift = -0.5 * bump(420 + d, 1500 + d, t) - 0.18 * Math.abs(flap) + 0.6 * bump(3700, 4250, t);
+  const squash = 0.008 * bump(300 + d, 760 + d, t) + 0.016 * bump(3700, 4250, t);
+
+  // Eyes: a slow sleepy blink when Mivy notices the visitor, lids a little
+  // heavier while waving, and another lazy blink once the arm is down.
+  const blink = (a: number, len: number) => (t <= a || t >= a + len ? 0 : Math.sin(((t - a) / len) * Math.PI) ** 1.5);
+  const lid = Math.max(blink(120, 420), blink(3980, 380), 0.18 * flapping);
+
+  return { shoulder, elbow, wrist, lean, lift, squash, lid, attention: smooth(0, 450, t) * (1 - smooth(3600, 4300, t)) };
 }
 
 /** The arm image plus its rest centerline (per row), ready to draw. */

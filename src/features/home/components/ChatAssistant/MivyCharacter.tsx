@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { cx } from "@/lib/cx";
 import styles from "./MivyCharacter.module.css";
-import { drawArm, GREETING_MS, greetingPose, loadArmRig, REST, type ArmRig } from "./mivyGreeting";
+import { drawArm, GREETING_MS, greetingPose, loadArmRig, randomVariation, REST, STEADY, type ArmRig } from "./mivyGreeting";
 
 interface MivyCharacterProps {
   /** Rendered height in px; the width follows the artwork (474×600). */
@@ -29,6 +29,7 @@ export function MivyCharacter({ height, waveKey, className }: MivyCharacterProps
   const armRef = useRef<HTMLCanvasElement>(null);
   const rigRef = useRef<ArmRig | null>(null);
   const greetingStart = useRef(-Infinity);
+  const greetingVariation = useRef(STEADY);
   const [waving, setWaving] = useState(false);
   const [stepping, setStepping] = useState(false);
   const wavingRef = useRef(false);
@@ -41,6 +42,7 @@ export function MivyCharacter({ height, waveKey, className }: MivyCharacterProps
   useEffect(() => {
     if (waveKey === undefined || waveKey === 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     greetingStart.current = performance.now();
+    greetingVariation.current = randomVariation();
     const start = window.setTimeout(() => setWaving(true), 0);
     const stop = window.setTimeout(() => setWaving(false), GREETING_MS);
     return () => {
@@ -104,6 +106,7 @@ export function MivyCharacter({ height, waveKey, className }: MivyCharacterProps
     let nextGlance = 0;
     let nextBlink = performance.now() + 1800;
     let blinkStart = -1;
+    let blinkLength = 320;
     let armPosed = false;
 
     const onPointer = (event: PointerEvent) => {
@@ -122,7 +125,7 @@ export function MivyCharacter({ height, waveKey, className }: MivyCharacterProps
         targetY = Math.random() < 0.3 ? 0.6 : 0;
         nextGlance = now + 1400 + Math.random() * 2600;
       }
-      const pose = greetingPose(now - greetingStart.current);
+      const pose = greetingPose(now - greetingStart.current, greetingVariation.current);
       const greeting = pose !== REST;
       if (greeting || armPosed) {
         const canvas = armRef.current;
@@ -138,17 +141,24 @@ export function MivyCharacter({ height, waveKey, className }: MivyCharacterProps
       root.style.setProperty("--look-x", look.toFixed(3));
       root.style.setProperty("--look-y", Math.max(0, lookY).toFixed(3));
 
-      if (blinkStart < 0 && now > nextBlink) blinkStart = now;
+      // Sleepy blinks: the lids close quickly and open slowly, each a little different.
+      if (blinkStart < 0 && now > nextBlink) {
+        blinkStart = now;
+        blinkLength = 280 + Math.random() * 180;
+      }
       let lid = 0;
       if (blinkStart >= 0) {
-        const t = (now - blinkStart) / 170;
-        lid = t < 1 ? Math.sin(t * Math.PI) : 0;
+        const t = (now - blinkStart) / blinkLength;
+        const close = 0.3;
+        lid = t < close ? Math.sin((t / close) * (Math.PI / 2)) : t < 1 ? Math.cos(((t - close) / (1 - close)) * (Math.PI / 2)) ** 2 : 0;
         if (t >= 1) {
           blinkStart = -1;
-          nextBlink = now + (Math.random() < 0.2 ? 220 : 2200 + Math.random() * 3200);
+          nextBlink = now + (Math.random() < 0.15 ? 380 : 2800 + Math.random() * 3800);
         }
       }
-      root.style.setProperty("--lid", Math.max(lid, pose.lid).toFixed(3));
+      // The lids also drift heavier now and then, as if Mivy is dozing off.
+      const droop = 0.13 * ((0.5 + 0.5 * Math.sin(now / 2300)) * (0.5 + 0.5 * Math.sin(now / 3700 + 1))) ** 2;
+      root.style.setProperty("--lid", Math.max(lid, droop, pose.lid).toFixed(3));
       frame = requestAnimationFrame(tick);
     };
     window.addEventListener("pointermove", onPointer, { passive: true });

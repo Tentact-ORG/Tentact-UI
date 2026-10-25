@@ -27,8 +27,8 @@ const STARTERS = ["What data do you have?", "How does the search work?", "How mu
 /** Messages sent to the server: the last few turns are enough context. */
 const HISTORY = 10;
 const GREETING_DELAY_MS = 1200;
-/** Matches MivyCharacter's wave length, so hovering doesn't restart a wave mid-way. */
-const WAVE_MS = 3200;
+/** Matches Mivy's greeting length (GREETING_MS), so hovering doesn't restart a wave mid-way. */
+const WAVE_MS = 4300;
 
 /**
  * The landing page's chat assistant, Mivy: a launcher button in the
