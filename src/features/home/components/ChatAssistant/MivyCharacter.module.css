@@ -1,54 +1,206 @@
+/*
+ * Every layer covers the same 474×600 canvas, so joints and features are given
+ * as percentages of it (measured on the artwork).
+ */
 .root {
+  --look-x: 0;
+  --look-y: 0;
+  --lid: 0;
   position: relative;
   display: inline-block;
   flex: none;
 }
 
-.art {
-  display: block;
+.layer,
+.body,
+.upperArm,
+.forearm {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.layer {
+  display: block;
   user-select: none;
   -webkit-user-drag: none;
 }
 
-/* Eyelids over the white of each eye: open (folded up) most of the time, closing briefly to blink. */
+/* ---------- body: breathing, and a bob with each step ---------- */
+.body {
+  transform-origin: 55% 96%;
+  animation: breathe 3.4s ease-in-out infinite;
+}
+
+.stepping .body {
+  animation: bob 1s ease-in-out;
+}
+
+@keyframes breathe {
+  50% {
+    transform: scale(1.012, 0.99);
+  }
+}
+
+@keyframes bob {
+  0%,
+  50%,
+  100% {
+    transform: translateY(0);
+  }
+  25%,
+  75% {
+    transform: translateY(-0.9%) rotate(-0.6deg);
+  }
+}
+
+/* ---------- feet: alternating steps on the spot ---------- */
+.footLeft,
+.footRight {
+  transform-origin: 50% 95%;
+}
+
+.stepping .footLeft {
+  animation: step 1s ease-in-out;
+}
+
+.stepping .footRight {
+  animation: step 1s ease-in-out 0.5s;
+}
+
+@keyframes step {
+  0%,
+  50%,
+  100% {
+    transform: translateY(0);
+  }
+  20% {
+    transform: translateY(-1.6%) rotate(-6deg);
+  }
+  35% {
+    transform: translateY(-0.6%) rotate(-2deg);
+  }
+}
+
+/* ---------- eyes: moving pupils inside the whites, and blinking lids ---------- */
+.eye {
+  position: absolute;
+  top: 25.35%;
+  height: 2.6%;
+  overflow: hidden;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+}
+
+.eyeLeft {
+  left: 48.75%;
+  width: 7.8%;
+}
+
+.eyeRight {
+  left: 59.4%;
+  width: 7.8%;
+}
+
+.pupil {
+  position: absolute;
+  left: 26%;
+  top: 4%;
+  width: 48%;
+  height: 40%;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  background: #0b0b0c;
+  transform: translate(calc(var(--look-x) * 52%), calc(var(--look-y) * 70%));
+}
+
+.eyeRight .pupil {
+  left: 30%;
+}
+
 .lid {
   position: absolute;
-  top: 24.9%;
-  height: 3.3%;
+  top: 25.1%;
+  height: 3.1%;
   border-radius: 0 0 50% 50% / 0 0 100% 100%;
   background: linear-gradient(#ffa232, #f68a1c);
   box-shadow: inset 0 -1px 0 rgba(176, 82, 0, 0.6);
-  transform: scaleY(0);
+  transform: scaleY(var(--lid));
   transform-origin: 50% 0;
-  animation: blink 4.8s infinite;
 }
 
 .lidLeft {
-  left: 44.8%;
-  width: 8.1%;
-}
-
-.lidRight {
-  left: 56.5%;
+  left: 48.7%;
   width: 7.9%;
 }
 
-@keyframes blink {
+.lidRight {
+  left: 59.3%;
+  width: 7.9%;
+}
+
+/* ---------- the wave: the arm swings out, the forearm comes up and waves ---------- */
+.upperArm {
+  transform-origin: 36.84% 33.86%;
+}
+
+.forearm {
+  transform-origin: 36.47% 53.47%;
+}
+
+.waving .upperArm {
+  animation: raise 2.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.waving .forearm {
+  animation: wave 2.6s ease-in-out;
+}
+
+@keyframes raise {
   0%,
-  90%,
-  96%,
   100% {
-    transform: scaleY(0);
+    transform: rotate(0deg);
   }
-  93% {
-    transform: scaleY(1);
+  16%,
+  84% {
+    transform: rotate(42deg);
+  }
+}
+
+@keyframes wave {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  16% {
+    transform: rotate(118deg);
+  }
+  28% {
+    transform: rotate(138deg);
+  }
+  40% {
+    transform: rotate(108deg);
+  }
+  52% {
+    transform: rotate(138deg);
+  }
+  64% {
+    transform: rotate(108deg);
+  }
+  76% {
+    transform: rotate(130deg);
+  }
+  84% {
+    transform: rotate(118deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lid {
+  .body,
+  .stepping .body,
+  .stepping .footLeft,
+  .stepping .footRight,
+  .waving .upperArm,
+  .waving .forearm {
     animation: none;
   }
 }

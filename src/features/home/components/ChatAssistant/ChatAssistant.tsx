@@ -26,7 +26,9 @@ const STARTERS = ["What data do you have?", "How does the search work?", "How mu
 
 /** Messages sent to the server: the last few turns are enough context. */
 const HISTORY = 10;
-const GREETING_DELAY_MS = 6000;
+const GREETING_DELAY_MS = 1200;
+/** Matches MivyCharacter's wave length, so hovering doesn't restart a wave mid-way. */
+const WAVE_MS = 2600;
 
 /**
  * The landing page's chat assistant, Mivy: a launcher button in the
@@ -48,13 +50,25 @@ function ChatAssistantWidget() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [bubble, setBubble] = useState(false);
+  const [waveKey, setWaveKey] = useState(0);
+  const lastWave = useRef(-Infinity);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelId = useId();
 
-  // A one-time nudge a few seconds after arrival.
+  const wave = () => {
+    const now = performance.now();
+    if (now - lastWave.current < WAVE_MS) return;
+    lastWave.current = now;
+    setWaveKey((key) => key + 1);
+  };
+
+  // Shortly after arrival Mivy says hi and waves.
   useEffect(() => {
-    const timer = window.setTimeout(() => setBubble(true), GREETING_DELAY_MS);
+    const timer = window.setTimeout(() => {
+      setBubble(true);
+      wave();
+    }, GREETING_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -176,7 +190,7 @@ function ChatAssistantWidget() {
       {bubble && !open && (
         <div className={styles.bubble}>
           <button type="button" className={styles.bubbleText} onClick={() => setOpen(true)}>
-            Hi, I&apos;m {BOT_NAME}! Looking for buyers? Ask me anything.
+            Hi! I&apos;m {BOT_NAME}. Looking for buyers? Ask me anything.
           </button>
           <button type="button" className={styles.bubbleClose} onClick={() => setBubble(false)} aria-label="Dismiss">
             ×
@@ -191,11 +205,12 @@ function ChatAssistantWidget() {
           setOpen((value) => !value);
           setBubble(false);
         }}
+        onPointerEnter={wave}
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={open ? `Close the chat with ${BOT_NAME}` : `Chat with ${BOT_NAME}, ${SITE.name}'s assistant`}
       >
-        <MivyCharacter height={92} className={styles.launcherMivy} />
+        <MivyCharacter height={92} waveKey={waveKey} className={styles.launcherMivy} />
       </button>
     </div>
   );
