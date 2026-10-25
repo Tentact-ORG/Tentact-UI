@@ -118,6 +118,12 @@ const settingsSchema = z
         return value;
       }),
 
+    // Credits: revealing or exporting contact details spends credits from the organization's balance.
+    CREDITS_ENABLED: envBool(true),
+    CREDITS_PER_CONTACT: envInt(1),
+    /** Platform operators (sales/finance) who approve top-up requests and grant credits to any workspace. */
+    CREDITS_OPERATOR_EMAILS: envStr(""),
+
     // CSV export settings
     EXPORT_MAX_ROWS: envInt(100000),
     EXPORT_EXPIRATION_HOURS: envInt(24),
@@ -149,6 +155,8 @@ const settingsSchema = z
 
 export type Settings = z.infer<typeof settingsSchema> & {
   readonly corsOriginsList: string[];
+  /** Lower-cased emails of the credit operators. */
+  readonly creditOperatorEmails: string[];
   readonly backgroundTasksEnabled: boolean;
 };
 
@@ -169,6 +177,9 @@ function loadSettings(): Settings {
     corsOriginsList: cfg.CORS_ORIGINS.split(",")
       .map((o) => o.trim())
       .filter((o) => o.length > 0),
+    creditOperatorEmails: cfg.CREDITS_OPERATOR_EMAILS.split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e.length > 0),
     backgroundTasksEnabled: cfg.APP_ENV !== "test",
   };
 }

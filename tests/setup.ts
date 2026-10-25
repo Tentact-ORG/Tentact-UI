@@ -17,6 +17,9 @@ Object.assign(process.env, {
   TENTACT_AUTH_SECRET: "test_session_secret_with_at_least_32_chars!!",
   EXPORT_STORAGE_PATH: path.join(runDir, "exports"),
   EXPORT_MAX_ROWS: "100000",
+  // Most suites exercise search and export without billing; tests/credits.test.ts turns it on.
+  CREDITS_ENABLED: "false",
+  CREDITS_OPERATOR_EMAILS: "ops@platform.example",
 });
 
 await import("node:fs").then((fs) => fs.promises.mkdir(runDir, { recursive: true }));

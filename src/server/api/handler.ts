@@ -3,6 +3,7 @@ import { ZodError, type z } from "zod";
 import { ensureAppInitialized } from "../bootstrap";
 import { HttpError } from "../core/errors";
 import { getLogger } from "../core/logger";
+import { InsufficientCreditsError } from "../services/creditService";
 
 const logger = getLogger("leadgen.app");
 
@@ -56,6 +57,9 @@ export function route<P = Record<string, never>>(
     } catch (err) {
       if (err instanceof HttpError) {
         return NextResponse.json({ detail: err.detail }, { status: err.status, headers: err.headers });
+      }
+      if (err instanceof InsufficientCreditsError) {
+        return NextResponse.json({ detail: err.message, required: err.required, balance: err.balance }, { status: 402 });
       }
       if (err instanceof ZodError) {
         return NextResponse.json({ detail: formatZodError(err, "body") }, { status: 422 });

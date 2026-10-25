@@ -12,6 +12,8 @@ import type { SearchRequest } from "../schemas/search";
 import { auditService } from "./auditService";
 import { chService } from "./clickhouseClient";
 import { rewriteOuterLimit } from "./clickhouseSql";
+import { contactIdOf, isContactDetailColumn } from "./contactMasking";
+import { creditService } from "./creditService";
 import { sanitizeClickhouseSql } from "./queryExecutor";
 import { schemaDiscoveryService } from "./schemaDiscovery";
 import { searchPlanCache, searchPlanKey } from "./searchPlanCache";
@@ -173,6 +175,14 @@ class ExportService {
         throw new PolicyViolationError(`Export query policy violation: ${validation.violations.join("; ")}`);
       }
       const { columns, rows } = await chService.executeQuery(exportSql, parameters, 60);
+
+      // Contact details are paid for: charge for contacts this workspace hasn't revealed before.
+      if (creditService.enabled && columns.some(isContactDetailColumn)) {
+        const idIndex = columns.findIndex((column) => contactIdOf({ [column]: "x" }) !== null);
+        if (idIndex === -1) throw new PolicyViolationError("The export contains contact details but no contact id, so it can't be charged.");
+        const ids = rows.map((row) => String(row[idIndex] ?? "").trim()).filter(Boolean);
+        await creditService.chargeForContacts(job.org_id, job.user_id, ids, "export", `export:${jobId}`);
+      }
 
       const storageDir = resolveFromCwd(getSettings().EXPORT_STORAGE_PATH);
       await fs.promises.mkdir(storageDir, { recursive: true, mode: 0o700 });

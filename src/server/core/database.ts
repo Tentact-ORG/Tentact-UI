@@ -143,6 +143,46 @@ export interface AuditEventsTable {
   created_at: DbDate;
 }
 
+export interface CreditAccountsTable {
+  org_id: number;
+  balance: number;
+  updated_at: DbDate;
+}
+
+export interface CreditLedgerTable {
+  id: Generated<number>;
+  org_id: number;
+  user_id: number | null;
+  /** Positive for grants, negative for spending. */
+  delta: number;
+  balance_after: number;
+  reason: string;
+  reference: string | null;
+  created_at: DbDate;
+}
+
+export interface RevealedContactsTable {
+  id: Generated<number>;
+  org_id: number;
+  /** Warehouse person id whose contact details the organization has paid for. */
+  contact_id: string;
+  user_id: number | null;
+  revealed_at: DbDate;
+}
+
+export interface CreditRequestsTable {
+  id: Generated<number>;
+  org_id: number;
+  user_id: number;
+  credits: number;
+  pack: string | null;
+  status: string;
+  note: string | null;
+  created_at: DbDate;
+  decided_at: DbDate | null;
+  decided_by: string | null;
+}
+
 export interface Database {
   organizations: OrganizationsTable;
   users: UsersTable;
@@ -154,6 +194,10 @@ export interface Database {
   export_jobs: ExportJobsTable;
   audit_events: AuditEventsTable;
   prospect_lists: ProspectListsTable;
+  credit_accounts: CreditAccountsTable;
+  credit_ledger: CreditLedgerTable;
+  revealed_contacts: RevealedContactsTable;
+  credit_requests: CreditRequestsTable;
 }
 
 /** Tables in dependency order (parents first). */
@@ -168,6 +212,10 @@ export const TABLE_NAMES = [
   "export_jobs",
   "audit_events",
   "prospect_lists",
+  "credit_accounts",
+  "credit_ledger",
+  "revealed_contacts",
+  "credit_requests",
 ] as const satisfies readonly (keyof Database)[];
 
 export type DialectName = "sqlite" | "postgres";
@@ -492,6 +540,58 @@ export async function migrateDatabase(): Promise<void> {
   for (const column of ["org_id", "user_id"]) {
     await db.schema.createIndex(`ix_prospect_lists_${column}`).ifNotExists().on("prospect_lists").column(column).execute();
   }
+
+  await db.schema
+    .createTable("credit_accounts")
+    .ifNotExists()
+    .addColumn("org_id", "integer", (c) => c.primaryKey().references("organizations.id").onDelete("cascade"))
+    .addColumn("balance", "integer", (c) => c.notNull())
+    .addColumn("updated_at", ts, (c) => c.notNull())
+    .execute();
+  await db.schema
+    .createTable("credit_ledger")
+    .ifNotExists()
+    .addColumn("id", id, (c) => c.primaryKey())
+    .addColumn("org_id", "integer", (c) => c.notNull().references("organizations.id").onDelete("cascade"))
+    .addColumn("user_id", "integer", (c) => c.references("users.id").onDelete("set null"))
+    .addColumn("delta", "integer", (c) => c.notNull())
+    .addColumn("balance_after", "integer", (c) => c.notNull())
+    .addColumn("reason", "varchar(50)", (c) => c.notNull())
+    .addColumn("reference", "varchar(255)")
+    .addColumn("created_at", ts, (c) => c.notNull())
+    .execute();
+  await db.schema.createIndex("ix_credit_ledger_org_id").ifNotExists().on("credit_ledger").column("org_id").execute();
+  await db.schema
+    .createTable("revealed_contacts")
+    .ifNotExists()
+    .addColumn("id", id, (c) => c.primaryKey())
+    .addColumn("org_id", "integer", (c) => c.notNull().references("organizations.id").onDelete("cascade"))
+    .addColumn("contact_id", "varchar(100)", (c) => c.notNull())
+    .addColumn("user_id", "integer", (c) => c.references("users.id").onDelete("set null"))
+    .addColumn("revealed_at", ts, (c) => c.notNull())
+    .execute();
+  await db.schema
+    .createIndex("ux_revealed_contacts_org_contact")
+    .ifNotExists()
+    .unique()
+    .on("revealed_contacts")
+    .columns(["org_id", "contact_id"])
+    .execute();
+  await db.schema
+    .createTable("credit_requests")
+    .ifNotExists()
+    .addColumn("id", id, (c) => c.primaryKey())
+    .addColumn("org_id", "integer", (c) => c.notNull().references("organizations.id").onDelete("cascade"))
+    .addColumn("user_id", "integer", (c) => c.notNull().references("users.id").onDelete("cascade"))
+    .addColumn("credits", "integer", (c) => c.notNull())
+    .addColumn("pack", "varchar(50)")
+    .addColumn("status", "varchar(20)", (c) => c.notNull())
+    .addColumn("note", "text")
+    .addColumn("created_at", ts, (c) => c.notNull())
+    .addColumn("decided_at", ts)
+    .addColumn("decided_by", "varchar(255)")
+    .execute();
+  await db.schema.createIndex("ix_credit_requests_status").ifNotExists().on("credit_requests").column("status").execute();
 
   // Columns added after the original schema; databases created by the Python service gain them here.
   await addColumnIfMissing("saved_searches", "ui_state", json);
