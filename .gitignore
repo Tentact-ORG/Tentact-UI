@@ -28,5 +28,6 @@ next-env.d.ts
 *.db
 *.db-wal
 *.db-shm
+*.db.backup-*
 exports_storage/
 .env

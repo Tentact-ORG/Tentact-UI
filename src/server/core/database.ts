@@ -318,6 +318,8 @@ interface DatabaseHandle {
   db: Kysely<Database>;
   dialect: DialectName;
   codec: RowCodec;
+  /** SQLite only: the file (or ":memory:") and its connection, for backups. */
+  sqlite?: { file: string; conn: BetterSqlite3.Database };
 }
 
 function createHandle(): DatabaseHandle {
@@ -327,7 +329,7 @@ function createHandle(): DatabaseHandle {
     conn.pragma("journal_mode = WAL");
     conn.pragma("busy_timeout = 5000");
     conn.pragma("foreign_keys = ON");
-    return { db: new Kysely<Database>({ dialect: new SqliteDialect({ database: conn }) }), dialect, codec: sqliteCodec };
+    return { db: new Kysely<Database>({ dialect: new SqliteDialect({ database: conn }) }), dialect, codec: sqliteCodec, sqlite: { file: target, conn } };
   }
   // TIMESTAMP WITHOUT TIME ZONE columns (as created by SQLAlchemy) hold naive UTC values.
   pg.types.setTypeParser(pg.types.builtins.TIMESTAMP, (value: string) => parseTimestamp(value));
@@ -358,12 +360,62 @@ export async function closeDb(): Promise<void> {
   if (current) await current.db.destroy();
 }
 
+/** Columns added to existing tables after the original schema (see the end of `migrateDatabase`). */
+const ADDED_COLUMNS: readonly [keyof Database, string][] = [["saved_searches", "ui_state"]];
+
+async function existingColumns(table: string): Promise<Set<string>> {
+  const db = getDb();
+  const rows =
+    getDialect() === "postgres"
+      ? (
+          await sql<{ name: string }>`SELECT column_name AS name FROM information_schema.columns
+            WHERE table_schema = current_schema() AND table_name = ${table}`.execute(db)
+        ).rows
+      : (await sql<{ name: string }>`SELECT name FROM pragma_table_info(${table})`.execute(db)).rows;
+  return new Set(rows.map((r) => r.name));
+}
+
+/** What `migrateDatabase` would add to an existing database: missing tables and columns. Empty for a new database. */
+export async function pendingSchemaChanges(): Promise<string[]> {
+  const present = new Map<string, Set<string>>();
+  for (const table of TABLE_NAMES) present.set(table, await existingColumns(table));
+  if (![...present.values()].some((columns) => columns.size > 0)) return [];
+  const changes = TABLE_NAMES.filter((table) => present.get(table)?.size === 0).map((table) => `table ${table}`);
+  for (const [table, column] of ADDED_COLUMNS) {
+    const columns = present.get(table);
+    if (columns && columns.size > 0 && !columns.has(column)) changes.push(`column ${table}.${column}`);
+  }
+  return changes;
+}
+
+/**
+ * Before changing an existing SQLite database, copies it next to itself
+ * (`<file>.backup-<timestamp>`) with SQLite's online backup. Postgres databases
+ * are not copied: the log lists the changes so they can be dumped first.
+ * Returns the backup path, if one was made.
+ */
+async function backupBeforeSchemaChange(): Promise<string | null> {
+  const changes = await pendingSchemaChanges();
+  if (changes.length === 0) return null;
+  const sqlite = handle().sqlite;
+  if (!sqlite || sqlite.file === ":memory:") {
+    logger.warn(`Updating the application database schema (${changes.join(", ")}). Take a backup first if this is a production database.`);
+    return null;
+  }
+  const backupPath = `${sqlite.file}.backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  await sqlite.conn.backup(backupPath);
+  logger.info(`Backed up ${sqlite.file} to ${backupPath} before adding ${changes.join(", ")}.`);
+  return backupPath;
+}
+
 /**
  * Creates the application tables if they do not exist (equivalent of
  * `Base.metadata.create_all`). Index names match SQLAlchemy's so existing
- * databases created by the Python service are left untouched.
+ * databases created by the Python service are left untouched; an existing
+ * SQLite database is backed up first when tables or columns will be added.
  */
 export async function migrateDatabase(): Promise<void> {
+  await backupBeforeSchemaChange();
   const db = getDb();
   const isPg = getDialect() === "postgres";
   const ts = isPg ? sql`timestamptz` : sql`datetime`;
@@ -613,23 +665,15 @@ export async function migrateDatabase(): Promise<void> {
     .execute();
 
   // Columns added after the original schema; databases created by the Python service gain them here.
-  await addColumnIfMissing("saved_searches", "ui_state", json);
+  for (const [table, column] of ADDED_COLUMNS) await addColumnIfMissing(table, column, json);
 
   logger.info("Application database schema initialized.");
 }
 
 /** Adds a nullable column to an existing table unless it is already there. */
 async function addColumnIfMissing(table: keyof Database, column: string, type: ReturnType<typeof sql>): Promise<void> {
-  const db = getDb();
-  const exists =
-    getDialect() === "postgres"
-      ? (
-          await sql<{ n: number }>`SELECT count(*)::int AS n FROM information_schema.columns
-            WHERE table_schema = current_schema() AND table_name = ${table} AND column_name = ${column}`.execute(db)
-        ).rows[0].n > 0
-      : (await sql<{ name: string }>`SELECT name FROM pragma_table_info(${table})`.execute(db)).rows.some((r) => r.name === column);
-  if (!exists) {
-    await db.schema.alterTable(table).addColumn(column, type).execute();
+  if (!(await existingColumns(table)).has(column)) {
+    await getDb().schema.alterTable(table).addColumn(column, type).execute();
     logger.info(`Added column ${table}.${column}.`);
   }
 }

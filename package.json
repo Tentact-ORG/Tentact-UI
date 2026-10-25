@@ -14,6 +14,7 @@
     "seed-clickhouse": "tsx --env-file-if-exists=.env scripts/seed-clickhouse.ts",
     "generate-data": "tsx scripts/generate-synthetic-data.ts",
     "verify-azure": "tsx --env-file-if-exists=.env scripts/verify-azure.ts",
+    "migrate-db": "tsx --env-file-if-exists=.env scripts/migrate-db.ts",
     "grant-credits": "tsx --env-file-if-exists=.env scripts/grant-credits.ts"
   },
   "dependencies": {
