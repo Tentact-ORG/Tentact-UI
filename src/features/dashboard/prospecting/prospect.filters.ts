@@ -23,7 +23,14 @@ interface FieldBase {
 }
 
 export type FilterField =
-  | (FieldBase & { kind: "multi"; key: MultiFilterKey; options: readonly string[]; allowCustom: boolean })
+  | (FieldBase & {
+      kind: "multi";
+      key: MultiFilterKey;
+      options: readonly string[];
+      allowCustom: boolean;
+      /** Warehouse column (table.column) whose matching values are looked up as the user types. */
+      suggestKey?: string;
+    })
   | (FieldBase & { kind: "toggle"; key: ToggleFilterKey; description: string })
   | (FieldBase & { kind: "choice"; key: "jobChange"; options: readonly { value: JobChangeWindow; label: string }[] });
 
@@ -39,7 +46,8 @@ const MULTI_FIELDS: readonly { key: MultiFilterKey; tab: FieldBase["tab"]; label
   { key: "seniorities", tab: "people", label: "Seniority" },
   { key: "departments", tab: "people", label: "Department" },
   { key: "functions", tab: "people", label: "Persona" },
-  { key: "countries", tab: "people", label: "Location" },
+  { key: "countries", tab: "people", label: "Country" },
+  { key: "cities", tab: "people", label: "City" },
   { key: "companies", tab: "company", label: "Company" },
   { key: "industries", tab: "company", label: "Industry" },
   { key: "employees", tab: "company", label: "Employees" },
@@ -75,7 +83,7 @@ export function buildFilterFields(facets: Facets, countries: CountryNames): Filt
     const options = optionsFor(definition, facets, countries);
     const allowCustom = definition.custom === true;
     if (options.length === 0 && !allowCustom) continue;
-    fields.push({ kind: "multi", tab, key, label, options, allowCustom });
+    fields.push({ kind: "multi", tab, key, label, options, allowCustom, ...(definition.suggestFrom ? { suggestKey: definition.suggestFrom } : {}) });
   }
 
   const peopleToggles: FilterField[] = [];
@@ -99,7 +107,8 @@ const FILTER_LABELS: Record<Exclude<keyof ProspectFilters, "query">, string> = {
   seniorities: "Seniority",
   departments: "Department",
   functions: "Persona",
-  countries: "Location",
+  countries: "Country",
+  cities: "City",
   verifiedEmail: "Verified email",
   directDial: "Phone",
   jobChange: "Changed jobs",
@@ -156,6 +165,7 @@ export function isProspectFilters(value: unknown): value is ProspectFilters {
   return (Object.keys(EMPTY_FILTERS) as (keyof ProspectFilters)[]).every((key) => {
     const expected = EMPTY_FILTERS[key];
     const actual = candidate[key];
+    if (actual === undefined) return true; // filters added later (e.g. City) default to empty
     if (Array.isArray(expected)) return Array.isArray(actual) && actual.every((item) => typeof item === "string");
     return typeof actual === typeof expected;
   });

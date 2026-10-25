@@ -50,7 +50,7 @@ interface WorkspaceData {
 const WorkspaceDataContext = createContext<WorkspaceData | null>(null);
 
 function toSavedSearch(record: SavedSearchRecord): SavedSearch {
-  const filters = isProspectFilters(record.ui_state) ? record.ui_state : { ...EMPTY_FILTERS, query: record.natural_query ?? "" };
+  const filters = isProspectFilters(record.ui_state) ? { ...EMPTY_FILTERS, ...record.ui_state } : { ...EMPTY_FILTERS, query: record.natural_query ?? "" };
   return { id: String(record.id), name: record.name, createdAt: record.created_at, filters };
 }
 

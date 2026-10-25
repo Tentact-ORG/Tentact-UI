@@ -68,6 +68,7 @@ export interface ProspectFilters {
   departments: string[];
   functions: string[];
   countries: string[];
+  cities: string[];
   verifiedEmail: boolean;
   directDial: boolean;
   jobChange: JobChangeWindow;
@@ -98,6 +99,7 @@ export const EMPTY_FILTERS: ProspectFilters = {
   departments: [],
   functions: [],
   countries: [],
+  cities: [],
   verifiedEmail: false,
   directDial: false,
   jobChange: "any",

@@ -8,6 +8,7 @@ import { ActiveFilters } from "../prospecting/ActiveFilters";
 import { ExportDialog } from "../prospecting/ExportDialog";
 import type { ProspectFilters } from "../prospecting/prospect.types";
 import { ProspectSearch } from "../prospecting/ProspectSearch";
+import { SavedSearches } from "../prospecting/SavedPanels";
 import { PAGE_SIZE, ProspectTable } from "../prospecting/ProspectTable";
 import { useProspectingActions } from "../prospecting/useProspectingActions";
 import { useWorkspaceData } from "../WorkspaceDataContext";
@@ -15,7 +16,7 @@ import styles from "./Pages.module.css";
 
 /** /home/search: the filter panel and the full, selectable results. */
 export function SearchPage() {
-  const { search, role } = useWorkspaceData();
+  const { search, role, savedSearches } = useWorkspaceData();
   const { filters, results, state } = search;
   const actions = useProspectingActions();
   const searched = state.status === "success" || state.status === "loadingMore";
@@ -71,7 +72,7 @@ export function SearchPage() {
       <PageHeader
         eyebrow="Prospecting"
         title="Prospect search"
-        description="Combine people and company filters, then save the search, export the results, or select prospects to build a list."
+        description="Search, review the results, and select prospects to save as a list or export. Your saved searches are below the filters."
         aside={<DataSourceBadge />}
       />
 
@@ -88,6 +89,10 @@ export function SearchPage() {
         onExport={(rows, fields) => void actions.exportResults(rows, fields)}
         searchedFilters={search.state.searchedFilters}
       />
+
+      {savedSearches.length > 0 && (
+        <SavedSearches searches={savedSearches} onApply={actions.applySavedSearch} onDelete={(id) => void actions.deleteSavedSearch(id)} />
+      )}
 
       {state.assumptions.length > 0 && state.status === "success" && (
         <p className={styles.searchNote}>Assumed: {state.assumptions.join(" ")}</p>

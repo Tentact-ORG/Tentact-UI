@@ -21,16 +21,19 @@ export interface FilterColumn {
   fixedOptions?: Record<string, { operator: StructuredFilter["operator"]; value: unknown }>;
   /** Options are ISO country codes, displayed as country names. */
   countryCodes?: boolean;
+  /** Too many values to list: matching values are looked up in the warehouse as the user types. */
+  suggestFrom?: string;
 }
 
 export const FILTER_COLUMNS: Partial<Record<MultiFilterKey, FilterColumn>> = {
-  titles: { column: `${PEOPLE}.JOB_TITLE_PER`, operator: "contains", custom: true },
+  titles: { column: `${PEOPLE}.JOB_TITLE_PER`, operator: "contains", custom: true, suggestFrom: `${PEOPLE}.JOB_TITLE_PER` },
   seniorities: { column: `${PEOPLE}.JOB_LEVEL_PER`, operator: "in", optionsFrom: `${PEOPLE}.JOB_LEVEL_PER` },
   departments: { column: `${PEOPLE}.JOB_FUNCTION_PER`, operator: "in", optionsFrom: `${PEOPLE}.JOB_FUNCTION_PER` },
   functions: { column: `${PEOPLE}.PERSONA_PER`, operator: "in", optionsFrom: `${PEOPLE}.PERSONA_PER` },
   countries: { column: `${PEOPLE}.COUNTRY_CODE_PER`, operator: "in", optionsFrom: `${PEOPLE}.COUNTRY_CODE_PER`, countryCodes: true },
+  cities: { column: `${PEOPLE}.CITY_PER`, operator: "in", custom: true, suggestFrom: `${PEOPLE}.CITY_PER` },
   // No "data source" filter: every contact has a LinkedIn URL, so it would filter nothing.
-  companies: { column: `${PEOPLE}.COMPANY_NAME_ORG`, operator: "contains", custom: true },
+  companies: { column: `${PEOPLE}.COMPANY_NAME_ORG`, operator: "contains", custom: true, suggestFrom: `${PEOPLE}.COMPANY_NAME_ORG` },
   industries: { column: `${COMPANY_ENRICHMENT}.industry`, operator: "has", optionsFrom: `${COMPANY_ENRICHMENT}.industry`, custom: true },
   employees: { column: `${PEOPLE}.EMPLOYEE_COUNT_RANGE_ORG`, operator: "in", optionsFrom: `${PEOPLE}.EMPLOYEE_COUNT_RANGE_ORG` },
   revenue: { column: `${PEOPLE}.REVENUE_RANGE_ORG`, operator: "in", optionsFrom: `${PEOPLE}.REVENUE_RANGE_ORG` },

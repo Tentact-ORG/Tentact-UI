@@ -214,6 +214,10 @@ export const dashboardApi = {
   getExport: (id: number) => apiRequest<ExportJobRecord>(`/api/export/${id}`),
   exportDownloadUrl: (token: string) => `/api/export/download/${encodeURIComponent(token)}`,
 
+  /** Values of a large free-text column (job titles, cities, companies) that contain `q`. */
+  suggest: (key: string, q: string, signal?: AbortSignal) =>
+    apiRequest<{ values: string[] }>(`/api/search/metadata/suggest?key=${encodeURIComponent(key)}&q=${encodeURIComponent(q)}`, { signal }),
+
   interpret: (query: string, fields: readonly InterpretField[]) =>
     apiRequest<InterpretResponse>("/api/search/interpret", { method: "POST", body: jsonBody({ query, fields }) }),
 

@@ -145,3 +145,17 @@ describe("column values for filter options", () => {
     expect((await callRoute(columnValues, { path: "/api/search/metadata/values?keys=a.b;drop", headers })).status).toBe(422);
   });
 });
+
+describe("GET /api/search/metadata/suggest", () => {
+  it("only serves signed-in users, allowed columns and sensible input", async () => {
+    const { GET: suggest } = await import("@/app/api/search/metadata/suggest/route");
+    const seed = await seedTestData();
+    const headers = await authHeaders(seed.member);
+    const call = (q: string, key = "new_combined_data.JOB_TITLE_PER", h: Record<string, string> | undefined = headers) =>
+      callRoute(suggest, { path: `/api/search/metadata/suggest?key=${encodeURIComponent(key)}&q=${encodeURIComponent(q)}`, headers: h });
+    expect((await call("engineer", undefined, {})).status).toBe(401);
+    expect((await call("engineer", "new_combined_data.EMAIL_ADDRESS_PER")).status).toBe(422);
+    expect((await call("e")).status).toBe(422);
+    expect((await call("x".repeat(61))).status).toBe(422);
+  });
+});

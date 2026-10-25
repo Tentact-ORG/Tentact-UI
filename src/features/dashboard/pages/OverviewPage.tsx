@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { DataSourceBadge } from "../components/DataSourceBadge";
 import { PageHeader } from "../components/PageHeader";
 import { StatCard } from "../components/StatCard";
@@ -17,11 +18,15 @@ interface OverviewPageProps {
   workspaceName: string;
 }
 
-/** /home: the workspace at a glance, the search bar, and saved searches. Enrichment lives in the search panel's Enrich tab. */
+/**
+ * /home: the workspace at a glance (stats, saved searches) with a quick search.
+ * Running a search opens /home/search, where the results, lists and exports live.
+ */
 export function OverviewPage({ firstName, workspaceName }: OverviewPageProps) {
   const { search, savedSearches } = useWorkspaceData();
   const { filters, results, summary, state } = search;
   const actions = useProspectingActions();
+  const router = useRouter();
   const searched = state.status === "success";
   const loadedNote = `of ${results.length.toLocaleString("en-US")} loaded`;
 
@@ -51,7 +56,7 @@ export function OverviewPage({ firstName, workspaceName }: OverviewPageProps) {
         <StatCard label="Hiring now" value={summary.hiring} detail={`At companies with open roles, ${loadedNote}`} tone="peach" />
       </section>
 
-      <ProspectSearch />
+      <ProspectSearch onSearch={() => router.push(DASHBOARD_PAGES.search.href)} />
 
       <ActiveFilters
         filters={filters}
