@@ -125,3 +125,28 @@ describe("schema, relationship and value discovery", () => {
     expect(classifySensitivity("industry")).toBe("public");
   });
 });
+
+describe("discovery on hosts that start often", () => {
+  beforeEach(async () => {
+    await seedTestData();
+  });
+
+  it("writes nothing when the warehouse schema hasn't changed", async () => {
+    const first = await schemaDiscoveryService.discoverClickhouseSchema();
+    const rows = await getDb().selectFrom("discovered_schemas").select(["id", "last_refreshed_at"]).execute();
+    expect(rows.length).toBe(first.columns_count);
+    const second = await schemaDiscoveryService.discoverClickhouseSchema();
+    expect(second.unchanged).toBe(true);
+    const after = await getDb().selectFrom("discovered_schemas").select(["id", "last_refreshed_at"]).execute();
+    expect(after).toEqual(rows); // not rewritten, not even the refresh time
+    expect(Object.keys(schemaDiscoveryService.getCachedSchema()).length).toBeGreaterThan(0);
+  });
+
+  it("treats values as fresh only when every column was refreshed recently", async () => {
+    await schemaDiscoveryService.discoverClickhouseSchema();
+    expect(await valueDiscoveryService.isFresh(24)).toBe(false);
+    await valueDiscoveryService.refreshAllValues();
+    expect(await valueDiscoveryService.isFresh(24)).toBe(true);
+    expect(await valueDiscoveryService.isFresh(0)).toBe(false);
+  });
+});

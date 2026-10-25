@@ -139,6 +139,9 @@ const settingsSchema = z
     /** Platform operators (sales/finance) who approve top-up requests and grant credits to any workspace. */
     CREDITS_OPERATOR_EMAILS: envStr(""),
 
+    /** Background value discovery is skipped while every column's values are younger than this. */
+    VALUE_DISCOVERY_MAX_AGE_HOURS: envInt(24),
+
     // CSV export settings
     EXPORT_MAX_ROWS: envInt(100000),
     EXPORT_EXPIRATION_HOURS: envInt(24),

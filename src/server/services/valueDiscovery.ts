@@ -154,6 +154,21 @@ class ValueDiscoveryService {
     return deferredResult("deferred");
   }
 
+  /** Every discovered column has values refreshed within `maxAgeHours`. */
+  async isFresh(maxAgeHours: number): Promise<boolean> {
+    const columns = Object.values(schemaDiscoveryService.getCachedSchema()).reduce((sum, table) => sum + Object.keys(table.columns).length, 0);
+    if (columns === 0 || maxAgeHours <= 0) return false;
+    const codec = getCodec();
+    const row = await getDb()
+      .selectFrom("discovered_values")
+      .select(({ fn }) => [fn.countAll<number>().as("n"), fn.min("last_refreshed_at").as("oldest")])
+      .where("database_name", "=", getSettings().CLICKHOUSE_DATABASE)
+      .executeTakeFirst();
+    if (!row || Number(row.n) < columns || !row.oldest) return false;
+    const oldest = codec.readDate(row.oldest);
+    return Date.now() - oldest.getTime() < maxAgeHours * 3_600_000;
+  }
+
   /** Runs value discovery over every discovered column and refreshes the registry and cache. */
   async refreshAllValues(): Promise<number> {
     const schema = schemaDiscoveryService.getCachedSchema();
@@ -162,6 +177,13 @@ class ValueDiscoveryService {
     const codec = getCodec();
     const now = new Date();
     let count = 0;
+    // Existing rows in one query, not one lookup per column.
+    const existingIds = new Map(
+      (await db.selectFrom("discovered_values").select(["id", "table_name", "column_name"]).where("database_name", "=", targetDb).execute()).map((r) => [
+        `${r.table_name}.${r.column_name}`,
+        r.id,
+      ]),
+    );
 
     for (const [tblName, tblInfo] of Object.entries(schema)) {
       for (const [colName, colMeta] of Object.entries(tblInfo.columns)) {
@@ -174,15 +196,9 @@ class ValueDiscoveryService {
           is_exact: codec.bool(res.is_exact),
           last_refreshed_at: codec.date(now),
         };
-        const existing = await db
-          .selectFrom("discovered_values")
-          .select("id")
-          .where("database_name", "=", targetDb)
-          .where("table_name", "=", tblName)
-          .where("column_name", "=", colName)
-          .executeTakeFirst();
-        if (existing) {
-          await db.updateTable("discovered_values").set(values).where("id", "=", existing.id).execute();
+        const existingId = existingIds.get(`${tblName}.${colName}`);
+        if (existingId !== undefined) {
+          await db.updateTable("discovered_values").set(values).where("id", "=", existingId).execute();
         } else {
           await db
             .insertInto("discovered_values")

@@ -458,7 +458,8 @@ export async function migrateDatabase(): Promise<void> {
     .addColumn("database_name", "varchar(100)", (c) => c.notNull())
     .addColumn("table_name", "varchar(100)", (c) => c.notNull())
     .addColumn("column_name", "varchar(100)", (c) => c.notNull())
-    .addColumn("data_type", "varchar(100)", (c) => c.notNull())
+    // ClickHouse types such as Array(Tuple(...)) run past 100 characters.
+    .addColumn("data_type", "text", (c) => c.notNull())
     .addColumn("is_nullable", "boolean", (c) => c.notNull())
     .addColumn("is_primary_key", "boolean", (c) => c.notNull())
     .addColumn("is_approved", "boolean", (c) => c.notNull())
@@ -552,7 +553,7 @@ export async function migrateDatabase(): Promise<void> {
     .addColumn("org_id", "integer", (c) => c.references("organizations.id").onDelete("cascade"))
     .addColumn("user_id", "integer", (c) => c.references("users.id").onDelete("set null"))
     .addColumn("action", "varchar(100)", (c) => c.notNull())
-    .addColumn("resource", "varchar(100)", (c) => c.notNull())
+    .addColumn("resource", "text", (c) => c.notNull()) // e.g. user:<email up to 255 characters>
     .addColumn("status", "varchar(50)", (c) => c.notNull())
     .addColumn("duration_ms", "integer", (c) => c.notNull())
     .addColumn("details", json)
@@ -672,8 +673,28 @@ export async function migrateDatabase(): Promise<void> {
 
   // Columns added after the original schema; databases created by the Python service gain them here.
   for (const [table, column] of ADDED_COLUMNS) await addColumnIfMissing(table, column, json);
+  // Postgres enforces varchar lengths (SQLite doesn't): columns created too short are widened.
+  for (const [table, column] of WIDENED_COLUMNS) await widenToTextIfLimited(table, column);
 
   logger.info("Application database schema initialized.");
+}
+
+/** Columns first created as varchar(100) that can hold longer values. */
+const WIDENED_COLUMNS: readonly [keyof Database, string][] = [
+  ["discovered_schemas", "data_type"],
+  ["audit_events", "resource"],
+];
+
+/** Postgres only: turns a length-limited varchar column into text. */
+async function widenToTextIfLimited(table: keyof Database, column: string): Promise<void> {
+  if (getDialect() !== "postgres") return;
+  const db = getDb();
+  const { rows } = await sql<{ n: number }>`SELECT count(*)::int AS n FROM information_schema.columns
+    WHERE table_schema = current_schema() AND table_name = ${table} AND column_name = ${column} AND character_maximum_length IS NOT NULL`.execute(db);
+  if (rows[0].n > 0) {
+    await sql`ALTER TABLE ${sql.table(table)} ALTER COLUMN ${sql.ref(column)} TYPE text`.execute(db);
+    logger.info(`Widened ${table}.${column} to text.`);
+  }
 }
 
 /** Adds a nullable column to an existing table unless it is already there. */

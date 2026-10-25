@@ -37,6 +37,13 @@ export function ensureDatabaseReady(): Promise<void> {
 }
 
 async function backgroundValueDiscovery(): Promise<void> {
+  // Values change slowly; re-scanning hundreds of columns on every start (serverless hosts start
+  // often) would load the warehouse for nothing. `npm run discover-warehouse` refreshes them too.
+  const maxAgeHours = getSettings().VALUE_DISCOVERY_MAX_AGE_HOURS;
+  if (await valueDiscoveryService.isFresh(maxAgeHours)) {
+    logger.info(`Distinct values were refreshed within ${maxAgeHours} h; skipping background value discovery.`);
+    return;
+  }
   logger.info("Starting background distinct-value discovery task...");
   try {
     const count = await valueDiscoveryService.refreshAllValues();
@@ -69,8 +76,9 @@ async function initialize(): Promise<void> {
   if (await chService.isConnected()) {
     logger.info("ClickHouse instance detected. Discovering schema...");
     try {
-      await schemaDiscoveryService.discoverClickhouseSchema();
-      await relationshipService.discoverCandidateRelationships();
+      const schema = await schemaDiscoveryService.discoverClickhouseSchema();
+      // Candidate joins only change with the schema; skip the scan (and its writes) otherwise.
+      if (!schema.unchanged) await relationshipService.discoverCandidateRelationships();
       await valueDiscoveryService.loadValueCache();
     } catch (err) {
       logger.error(`Error during initial ClickHouse schema discovery: ${errorMessage(err)}`);

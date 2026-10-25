@@ -1,14 +1,10 @@
 import { createHash } from "node:crypto";
 import { getSettings } from "../core/config";
-import { getCodec, getDb } from "../core/database";
+import type { Insertable } from "kysely";
+import { getCodec, getDb, type DiscoveredSchemasTable } from "../core/database";
 import { getLogger } from "../core/logger";
 import { singleton } from "../core/singleton";
-import {
-  DEFAULT_ALLOWED_OPERATIONS,
-  RelationshipStatus,
-  SensitivityLevel,
-  toDiscoveredColumn,
-} from "../models/entities";
+import { DEFAULT_ALLOWED_OPERATIONS, RelationshipStatus, SensitivityLevel, toDiscoveredColumn } from "../models/entities";
 import { auditService } from "./auditService";
 import { chService } from "./clickhouseClient";
 
@@ -37,6 +33,8 @@ export interface SchemaDiscoveryResult {
   columns_count: number;
   fingerprint: string;
   schema_changed: boolean;
+  /** Nothing was written: the stored schema already matches the warehouse. */
+  unchanged: boolean;
 }
 
 interface ParsedColumn {
@@ -127,10 +125,9 @@ class SchemaDiscoveryService {
     const codec = getCodec();
     logger.info(`Discovering ClickHouse schema for database: ${targetDb}`);
 
-    const tables = await chService.executeQuery(
-      "SELECT name, engine FROM system.tables WHERE database = {database:String} ORDER BY name",
-      { database: targetDb },
-    );
+    const tables = await chService.executeQuery("SELECT name, engine FROM system.tables WHERE database = {database:String} ORDER BY name", {
+      database: targetDb,
+    });
     const tableNames = tables.rows.map((row) => String(row[0]));
 
     const columns = await chService.executeQuery(
@@ -185,30 +182,40 @@ class SchemaDiscoveryService {
 
     const existingRows = await db.selectFrom("discovered_schemas").selectAll().where("database_name", "=", targetDb).execute();
     const existing = new Map(existingRows.map((r) => [`${r.table_name}\u0000${r.column_name}`, r]));
+    // Same warehouse fingerprint and every column already stored: nothing to write. This keeps
+    // startup cheap on hosts that start often (serverless), where 399 row writes didn't finish.
+    const unchanged = activeFp !== undefined && !schemaChanged && existingRows.length === columns.rows.length;
 
-    await db.transaction().execute(async (trx) => {
-      for (const [tbl, cols] of parsedSchema) {
-        const approved = isDefaultApproved(targetDb, tbl);
-        for (const [col, meta] of cols) {
-          const current = existing.get(`${tbl}\u0000${col}`);
-          if (current) {
-            await trx
-              .updateTable("discovered_schemas")
-              .set({
-                data_type: meta.type,
-                is_nullable: codec.bool(meta.is_nullable),
-                is_primary_key: codec.bool(meta.is_primary_key),
-                is_approved: codec.bool(approved),
-                discovery_status: "ready",
-                last_refreshed_at: codec.date(now),
-                ...(isLegacyArrMisclassification(col, current.sensitivity) ? { sensitivity: classifySensitivity(col) } : {}),
-              })
-              .where("id", "=", current.id)
-              .execute();
-          } else {
-            await trx
-              .insertInto("discovered_schemas")
-              .values({
+    const newRows: Insertable<DiscoveredSchemasTable>[] = [];
+    if (!unchanged)
+      await db.transaction().execute(async (trx) => {
+        for (const [tbl, cols] of parsedSchema) {
+          const approved = isDefaultApproved(targetDb, tbl);
+          for (const [col, meta] of cols) {
+            const current = existing.get(`${tbl}\u0000${col}`);
+            const differs =
+              current &&
+              (current.data_type !== meta.type ||
+                Boolean(current.is_nullable) !== meta.is_nullable ||
+                Boolean(current.is_primary_key) !== meta.is_primary_key ||
+                Boolean(current.is_approved) !== approved ||
+                isLegacyArrMisclassification(col, current.sensitivity));
+            if (current && differs) {
+              await trx
+                .updateTable("discovered_schemas")
+                .set({
+                  data_type: meta.type,
+                  is_nullable: codec.bool(meta.is_nullable),
+                  is_primary_key: codec.bool(meta.is_primary_key),
+                  is_approved: codec.bool(approved),
+                  discovery_status: "ready",
+                  last_refreshed_at: codec.date(now),
+                  ...(isLegacyArrMisclassification(col, current.sensitivity) ? { sensitivity: classifySensitivity(col) } : {}),
+                })
+                .where("id", "=", current.id)
+                .execute();
+            } else if (!current) {
+              newRows.push({
                 database_name: targetDb,
                 table_name: tbl,
                 column_name: col,
@@ -221,12 +228,23 @@ class SchemaDiscoveryService {
                 discovery_status: "ready",
                 strategy: "auto",
                 last_refreshed_at: codec.date(now),
-              })
-              .execute();
+              });
+            }
           }
         }
-      }
-    });
+        // New columns in a few multi-row statements instead of one round trip each.
+        for (let i = 0; i < newRows.length; i += 200) {
+          await trx
+            .insertInto("discovered_schemas")
+            .values(newRows.slice(i, i + 200))
+            .execute();
+        }
+        await trx
+          .updateTable("discovered_schemas")
+          .set({ last_refreshed_at: codec.date(now) })
+          .where("database_name", "=", targetDb)
+          .execute();
+      });
 
     await this.loadSchemaCache();
 
@@ -250,6 +268,7 @@ class SchemaDiscoveryService {
       columns_count: columns.rows.length,
       fingerprint: fingerprintHash,
       schema_changed: schemaChanged,
+      unchanged,
     };
     await auditService.logEvent({
       action: "SCHEMA_DISCOVERY",

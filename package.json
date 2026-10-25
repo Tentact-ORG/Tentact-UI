@@ -15,6 +15,7 @@
     "generate-data": "tsx scripts/generate-synthetic-data.ts",
     "verify-azure": "tsx --env-file-if-exists=.env scripts/verify-azure.ts",
     "migrate-db": "tsx --env-file-if-exists=.env scripts/migrate-db.ts",
+    "discover-warehouse": "tsx --env-file-if-exists=.env scripts/discover-warehouse.ts",
     "grant-credits": "tsx --env-file-if-exists=.env scripts/grant-credits.ts",
     "migrate-supabase": "tsx --env-file-if-exists=.env scripts/migrate-supabase.ts",
     "verify-public-search-limit": "tsx --env-file-if-exists=.env scripts/verify-public-search-limit.ts"
