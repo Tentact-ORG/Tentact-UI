@@ -13,9 +13,7 @@
 
 .layer,
 .bob,
-.body,
-.upperArm,
-.forearm {
+.body {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -144,215 +142,37 @@
 
 /*
  * ---------- the wave ----------
- * A real wave: a small dip, the arm swings up high (overshooting a little and
- * settling), the forearm stands up above the head and waves side to side from
- * the elbow while the body rocks along, then the arm drops back down. The
- * forearm trails the upper arm slightly so the motion follows through.
- * Angles: the upper arm is measured from hanging down; the forearm is relative
- * to the upper arm (130° + 50° = straight up). Timing functions are set per
- * keyframe: each one shapes the segment after it.
+ * mivyGreeting.ts drives the greeting: it draws the arm, bending like a soft
+ * limb, on this canvas and sets the body's lean, lift and squash below.
  */
-.upperArm {
-  transform-origin: 36.84% 33.86%;
+.arm {
+  position: absolute;
+  left: calc(-90 / 474 * 100%);
+  top: calc(-120 / 600 * 100%);
+  width: calc(420 / 474 * 100%);
+  height: 100%;
+  pointer-events: none;
 }
 
-.forearm {
-  transform-origin: 36.47% 53.47%;
+.root {
+  --lean: 0;
+  --lift: 0;
+  --squash: 0;
 }
 
 .bob {
   transform-origin: 55% 96%;
 }
 
-.waving .upperArm,
-.waving .forearm,
 .waving .bob {
-  will-change: transform;
-}
-
-.waving .upperArm {
-  animation: raise 3.2s both;
-}
-
-.waving .forearm {
-  animation: wave 3.2s both;
-}
-
-.waving .bob {
-  animation: rock 3.2s both;
-}
-
-@keyframes raise {
-  0% {
-    transform: rotate(0deg);
-    animation-timing-function: ease-out;
-  }
-  5% {
-    transform: rotate(-8deg);
-    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.15);
-  }
-  17% {
-    transform: rotate(139deg);
-    animation-timing-function: ease-in-out;
-  }
-  22% {
-    transform: rotate(130deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  30.5% {
-    transform: rotate(126deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  39% {
-    transform: rotate(133deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  47.5% {
-    transform: rotate(126deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  56% {
-    transform: rotate(133deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  64.5% {
-    transform: rotate(126deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  73% {
-    transform: rotate(132deg);
-    animation-timing-function: ease-in-out;
-  }
-  81% {
-    transform: rotate(129deg);
-    animation-timing-function: cubic-bezier(0.5, 0, 0.7, 1);
-  }
-  95% {
-    transform: rotate(-5deg);
-    animation-timing-function: ease-out;
-  }
-  100% {
-    transform: rotate(0deg);
-  }
-}
-
-@keyframes wave {
-  0% {
-    transform: rotate(0deg);
-    animation-timing-function: ease-out;
-  }
-  5% {
-    transform: rotate(14deg);
-    animation-timing-function: cubic-bezier(0.3, 0, 0.4, 1);
-  }
-  17% {
-    transform: rotate(40deg);
-    animation-timing-function: ease-out;
-  }
-  22% {
-    transform: rotate(73deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  30.5% {
-    transform: rotate(21deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  39% {
-    transform: rotate(79deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  47.5% {
-    transform: rotate(21deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  56% {
-    transform: rotate(79deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  64.5% {
-    transform: rotate(23deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  73% {
-    transform: rotate(73deg);
-    animation-timing-function: ease-in-out;
-  }
-  81% {
-    transform: rotate(47deg);
-    animation-timing-function: cubic-bezier(0.5, 0, 0.7, 1);
-  }
-  95% {
-    transform: rotate(-6deg);
-    animation-timing-function: ease-out;
-  }
-  100% {
-    transform: rotate(0deg);
-  }
-}
-
-/* The body dips before the arm goes up, leans away from it, and rocks with each swing. */
-@keyframes rock {
-  0% {
-    transform: none;
-    animation-timing-function: ease-out;
-  }
-  5% {
-    transform: translateY(0.6%) scale(1.025, 0.97);
-    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.1);
-  }
-  17% {
-    transform: translateY(-1.2%) rotate(3deg);
-    animation-timing-function: ease-in-out;
-  }
-  22% {
-    transform: rotate(2.4deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  30.5% {
-    transform: rotate(1.2deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  39% {
-    transform: rotate(2.8deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  47.5% {
-    transform: rotate(1.2deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  56% {
-    transform: rotate(2.8deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  64.5% {
-    transform: rotate(1.2deg);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
-  }
-  73% {
-    transform: rotate(2.4deg);
-    animation-timing-function: ease-in-out;
-  }
-  81% {
-    transform: rotate(2deg);
-    animation-timing-function: ease-in-out;
-  }
-  94% {
-    transform: translateY(0.4%) scale(1.015, 0.985);
-    animation-timing-function: ease-out;
-  }
-  100% {
-    transform: none;
-  }
+  transform: translateY(calc(var(--lift) * 1%)) rotate(calc(var(--lean) * 1deg)) scale(calc(1 + var(--squash)), calc(1 - var(--squash)));
 }
 
 @media (prefers-reduced-motion: reduce) {
   .body,
   .stepping .bob,
-  .waving .bob,
   .stepping .footLeft,
-  .stepping .footRight,
-  .waving .upperArm,
-  .waving .forearm {
+  .stepping .footRight {
     animation: none;
   }
 }
