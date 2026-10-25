@@ -60,5 +60,8 @@ If a recoverable SQL execution error occurs, the sanitized error is returned to 
 ### 4a. Approved Plan Cache (paging, exports and repeat searches)
 Once a query has been generated, approved by the reviewer and passed the validator, it is cached for 30 minutes (up to 500 plans, `src/server/services/searchPlanCache.ts`), keyed by role, schema fingerprint, the normalized natural query, filters and sorting. "Load more", re-applied saved searches and exports reuse it: the outer `LIMIT`/`OFFSET` is rewritten token-aware, the page SQL is validated again, and no model is called, so pages are consistent with each other and come back in about a second instead of the 20–30 s of a fresh generation. Only plans whose SQL ends in a deterministic `ORDER BY` are cached. The data and count queries run in parallel, and a cached plan reuses its count.
 
+### 4b. Request → Filters → Apply
+Pressing Enter in the dashboard's search bar doesn't search right away: `POST /api/search/interpret` (`src/server/services/queryInterpreter.ts`) turns the typed request into the filter panel's values, using the generator's model at the reviewer's lower effort (about 3–4 s). Every proposed value is checked against that filter's options; criteria no filter can express stay as search text. The user reviews the chips, edits them or searches the text as typed, and **Apply filters** runs the normal search (generation, review, validation, read-only execution). Applied filters can then be saved as a search.
+
 ### 5. Multi-Tenant Organization Isolation
 Underlying lead records in ClickHouse are shared across organizations, but application-level state (saved searches, organization configuration, export jobs, users, and audit logs) is strictly isolated by `org_id` on the server.

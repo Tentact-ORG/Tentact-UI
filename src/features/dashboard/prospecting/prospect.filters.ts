@@ -1,4 +1,4 @@
-import type { ColumnValues } from "../api/dashboard.api";
+import type { ColumnValues, InterpretField, InterpretResponse } from "../api/dashboard.api";
 import {
   DIRECT_DIAL_FILTER,
   FILTER_COLUMNS,
@@ -170,4 +170,32 @@ export function isProspectFilters(value: unknown): value is ProspectFilters {
     if (Array.isArray(expected)) return Array.isArray(actual) && actual.every((item) => typeof item === "string");
     return typeof actual === typeof expected;
   });
+}
+
+/** The filter fields as the interpreter endpoint expects them (choice fields by label). */
+export function toInterpretFields(fields: readonly FilterField[]): InterpretField[] {
+  return fields.map((field) => {
+    if (field.kind === "multi") return { key: field.key, label: field.label, kind: "multi", options: field.options.slice(0, 600), allow_custom: field.allowCustom };
+    if (field.kind === "toggle") return { key: field.key, label: field.label, kind: "toggle", options: [], allow_custom: false };
+    return { key: field.key, label: field.label, kind: "choice", options: field.options.map((option) => option.label), allow_custom: false };
+  });
+}
+
+/**
+ * Applies an interpretation to the current filters: fields it names are replaced,
+ * others are kept, and the search text becomes whatever no filter could express.
+ */
+export function applyInterpretation(base: ProspectFilters, result: InterpretResponse, fields: readonly FilterField[]): ProspectFilters {
+  const next: ProspectFilters = { ...base, query: result.remaining_query };
+  for (const field of fields) {
+    const values = result.filters[field.key];
+    if (!values || values.length === 0) continue;
+    if (field.kind === "multi") next[field.key] = values;
+    else if (field.kind === "toggle") next[field.key] = values.includes("true");
+    else {
+      const choice = field.options.find((option) => option.label === values[0]);
+      if (choice) next.jobChange = choice.value;
+    }
+  }
+  return next;
 }

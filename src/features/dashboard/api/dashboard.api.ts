@@ -64,6 +64,21 @@ export interface SearchResponse {
   contact_details_masked: boolean;
 }
 
+export interface InterpretField {
+  key: string;
+  label: string;
+  kind: "multi" | "toggle" | "choice";
+  options: readonly string[];
+  allow_custom: boolean;
+}
+
+export interface InterpretResponse {
+  /** Field key → values: options of multi fields, ["true"] for toggles, one option value for choices. */
+  filters: Record<string, string[]>;
+  /** Criteria no filter expresses; kept as the search text. */
+  remaining_query: string;
+}
+
 export interface RevealResponse {
   /** Contact id → unmasked contact-detail columns. */
   contacts: Record<string, Record<string, unknown>>;
@@ -194,6 +209,9 @@ export const dashboardApi = {
     apiRequest<ExportJobRecord>("/api/export", { method: "POST", body: jsonBody({ search_request: searchRequest, max_rows: maxRows }) }),
   getExport: (id: number) => apiRequest<ExportJobRecord>(`/api/export/${id}`),
   exportDownloadUrl: (token: string) => `/api/export/download/${encodeURIComponent(token)}`,
+
+  interpret: (query: string, fields: readonly InterpretField[]) =>
+    apiRequest<InterpretResponse>("/api/search/interpret", { method: "POST", body: jsonBody({ query, fields }) }),
 
   reveal: (resultId: string, contactIds: readonly string[]) =>
     apiRequest<RevealResponse>("/api/contacts/reveal", { method: "POST", body: jsonBody({ result_id: resultId, contact_ids: contactIds }) }),

@@ -2,13 +2,22 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { cx } from "@/lib/cx";
+import { dashboardApi, errorText } from "../api/dashboard.api";
 import { BuildingIcon, FilterIcon, SearchIcon, SparkleIcon, UserIcon } from "../components/icons";
 import { useWorkspaceData } from "../WorkspaceDataContext";
 import { EnrichmentOptions } from "./EnrichmentOptions";
 import { FilterGroup } from "./FilterGroup";
-import { activeFilterChips, type FilterTab } from "./prospect.filters";
+import { activeFilterChips, applyInterpretation, toInterpretFields, type FilterTab } from "./prospect.filters";
+import type { ProspectFilters } from "./prospect.types";
 import { consumeSearchFocusRequest, PROSPECT_SEARCH_INPUT_ID } from "./search-focus";
 import styles from "./Prospecting.module.css";
+
+/** The typed request being turned into filters, and what to restore for "search as typed". */
+type Interpretation =
+  | { status: "idle" }
+  | { status: "loading"; text: string }
+  | { status: "ready"; text: string; previous: ProspectFilters; remaining: string }
+  | { status: "error"; text: string; previous: ProspectFilters; message: string };
 
 const TABS: { id: FilterTab; label: string; Icon: typeof UserIcon }[] = [
   { id: "people", label: "People", Icon: UserIcon },
@@ -24,7 +33,8 @@ const TABS: { id: FilterTab; label: string; Icon: typeof UserIcon }[] = [
  */
 export function ProspectSearch() {
   const { search, fields, fieldsReady, fieldsError } = useWorkspaceData();
-  const { filters, state, dirty, busy, run, setQuery, toggleOption, setToggle, setJobChange, clearField, clearAll } = search;
+  const { filters, state, dirty, busy, run, setQuery, toggleOption, setToggle, setJobChange, clearField, clearAll, replaceFilters } = search;
+  const [interpretation, setInterpretation] = useState<Interpretation>({ status: "idle" });
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<FilterTab>("people");
   const containerRef = useRef<HTMLElement>(null);
@@ -40,8 +50,40 @@ export function ProspectSearch() {
   /** Closes the panel and searches with the current filters. */
   const submit = useCallback(() => {
     setOpen(false);
+    setInterpretation({ status: "idle" });
     void run();
   }, [run]);
+
+  /**
+   * Enter in the search bar: the typed request becomes filters the user reviews
+   * and applies. With no text (or no filter fields loaded) it searches directly.
+   */
+  const interpret = useCallback(async () => {
+    const text = filters.query.trim();
+    if (!text || !fieldsReady || fields.length === 0) {
+      submit();
+      return;
+    }
+    const previous = filters;
+    setOpen(false);
+    setInterpretation({ status: "loading", text });
+    try {
+      const result = await dashboardApi.interpret(text, toInterpretFields(fields));
+      replaceFilters(applyInterpretation(previous, result, fields));
+      setInterpretation({ status: "ready", text, previous, remaining: result.remaining_query });
+    } catch (error) {
+      setInterpretation({ status: "error", text, previous, message: errorText(error, "The request couldn't be turned into filters.") });
+    }
+  }, [filters, fields, fieldsReady, replaceFilters, submit]);
+
+  /** Ignores the suggested filters and searches the request as typed. */
+  const searchAsTyped = useCallback(() => {
+    if (interpretation.status !== "ready" && interpretation.status !== "error") return;
+    const typed = { ...interpretation.previous, query: interpretation.text };
+    replaceFilters(typed);
+    setInterpretation({ status: "idle" });
+    void run(typed);
+  }, [interpretation, replaceFilters, run]);
 
   const finish = () => {
     if (dirty) submit();
@@ -100,7 +142,7 @@ export function ProspectSearch() {
     <section ref={containerRef} className={styles.search} aria-labelledby={`${panelId}-title`}>
       <div className={styles.searchHead}>
         <h2 id={`${panelId}-title`}>Find your next buyers</h2>
-        <p>Describe who you sell to, or open the filters to build the list field by field, then press Enter.</p>
+        <p>Describe who you sell to and press Enter: we turn it into filters you can review and adjust, then apply.</p>
       </div>
 
       <div
@@ -120,7 +162,7 @@ export function ProspectSearch() {
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.nativeEvent.isComposing) {
               event.preventDefault();
-              submit();
+              void interpret();
             }
           }}
           onFocus={openPanel}
@@ -144,6 +186,50 @@ export function ProspectSearch() {
           {chips.length > 0 && <b className={styles.filtersCount}>{chips.length}</b>}
         </button>
       </div>
+
+      {interpretation.status !== "idle" && (
+        <div className={styles.assist} role="status" aria-live="polite">
+          {interpretation.status === "loading" ? (
+            <p>Turning “{interpretation.text}” into filters…</p>
+          ) : interpretation.status === "error" ? (
+            <>
+              <p className={styles.assistError}>{interpretation.message}</p>
+              <div className={styles.assistActions}>
+                <button type="button" className={styles.linkButton} onClick={searchAsTyped}>
+                  Search the text as typed
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>
+                {chips.length > 0 ? (
+                  <>
+                    <b>
+                      {chips.length} filter{chips.length === 1 ? "" : "s"}
+                    </b>{" "}
+                    set from “{interpretation.text}”.
+                  </>
+                ) : (
+                  <>No filters matched “{interpretation.text}”; it will be searched as text.</>
+                )}
+                {interpretation.remaining && chips.length > 0 ? <> Also searching for “{interpretation.remaining}”.</> : null} Review or edit them, then apply.
+              </p>
+              <div className={styles.assistActions}>
+                <button type="button" className={styles.linkButton} onClick={searchAsTyped} disabled={busy}>
+                  Search the text as typed
+                </button>
+                <button type="button" className={styles.linkButton} onClick={() => setOpen(true)}>
+                  Edit filters
+                </button>
+                <button type="button" className={styles.doneButton} onClick={submit} disabled={busy}>
+                  Apply filters
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div id={panelId} className={styles.panel} hidden={!open}>
         <div className={styles.panelHead}>
