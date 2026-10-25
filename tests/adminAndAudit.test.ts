@@ -142,3 +142,41 @@ describe("admin console & audit", () => {
     expect(sanitizeAuditDetails({})).toBeNull();
   });
 });
+
+describe("creating users in their own workspace with starting credits", () => {
+  it("lets credit operators create a workspace with 499 credits by default, and nobody else", async () => {
+    const { getCodec, getDb } = await import("@/server/core/database");
+    const { hashPassword } = await import("@/server/core/security");
+    const { toUser } = await import("@/server/models/entities");
+    const { creditService } = await import("@/server/services/creditService");
+    const { authHeaders, callRoute, seedTestData } = await import("./helpers");
+    const seed = await seedTestData();
+    const codec = getCodec();
+    const operatorRow = await getDb()
+      .insertInto("users")
+      .values({ org_id: seed.org1.id, email: "ops@platform.example", hashed_password: await hashPassword("operator_password_1"), full_name: "Ops", role: "ADMIN", is_active: codec.bool(true), created_at: codec.date(new Date()) })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    const operator = await authHeaders(toUser(codec, operatorRow));
+    const base = { password: "customer_password_1", full_name: "Jane Doe", role: "ADMIN" };
+
+    const created = await callRoute(createUser, { method: "POST", headers: operator, body: { ...base, email: "jane@northwind.example", workspace_name: "Northwind" } });
+    expect(created.status).toBe(200);
+    expect(created.body).toMatchObject({ email: "jane@northwind.example", role: "ADMIN", credits_granted: 499, balance: 499, workspace: { name: "Northwind", slug: "northwind" } });
+    const orgId = created.body.workspace.id;
+    expect(orgId).not.toBe(seed.org1.id);
+    expect(await creditService.balance(orgId)).toBe(499);
+    expect((await creditService.history(orgId))[0]).toMatchObject({ delta: 499, reason: "grant" });
+
+    // A custom amount, and a unique slug for a second workspace with the same name.
+    const second = await callRoute(createUser, { method: "POST", headers: operator, body: { ...base, email: "raj@northwind2.example", workspace_name: "Northwind", starting_credits: 1200 } });
+    expect(second.body).toMatchObject({ credits_granted: 1200, workspace: { slug: "northwind-2" } });
+
+    // Workspace admins who aren't operators: own workspace only, no credits.
+    const admin = await authHeaders(seed.admin);
+    expect((await callRoute(createUser, { method: "POST", headers: admin, body: { ...base, email: "x@y.example", workspace_name: "Mine" } })).status).toBe(403);
+    expect((await callRoute(createUser, { method: "POST", headers: operator, body: { ...base, email: "z@y.example", starting_credits: 10 } })).status).toBe(422);
+    const plain = await callRoute(createUser, { method: "POST", headers: admin, body: { ...base, email: "teammate@acme.com", role: "MEMBER" } });
+    expect(plain.body).toMatchObject({ org_id: seed.org1.id, workspace: null, credits_granted: 0 });
+  });
+});

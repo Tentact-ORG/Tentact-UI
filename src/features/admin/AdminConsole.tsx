@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { errorText } from "@/features/dashboard/api/dashboard.api";
+import { DEFAULT_STARTING_CREDITS } from "@/lib/credits";
 import { adminApi as api } from "./admin.api";
 import type { AuditEvent, DiscoveredColumn, MetadataStatus, TableRelationship, User, UserRole } from "./admin.types";
 import styles from "./AdminConsole.module.css";
@@ -37,6 +38,18 @@ async function fetchAdminData(canManageUsers: boolean): Promise<AdminData> {
   return { status, columns, relationships, users, auditEvents };
 }
 
+/** "jane@acme-corp.com" → "Acme Corp"; empty for free-mail domains. */
+function workspaceFromEmail(email: string): string {
+  const domain = email.split("@")[1]?.toLowerCase() ?? "";
+  if (!domain || /^(gmail|googlemail|yahoo|outlook|hotmail|live|icloud|aol|proton|protonmail)\./.test(domain)) return "";
+  const name = domain.split(".")[0] ?? "";
+  return name
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
   const canManageUsers = role === "ADMIN";
   const [activeTab, setActiveTab] = useState<AdminTab>("metadata");
@@ -54,6 +67,30 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<UserRole>("MEMBER");
   const [showUserModal, setShowUserModal] = useState(false);
+  // Credit operators can put a new user in a workspace of their own, with starting credits.
+  const [isOperator, setIsOperator] = useState(false);
+  const [ownWorkspace, setOwnWorkspace] = useState(true);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceNameEdited, setWorkspaceNameEdited] = useState(false);
+  const [startingCredits, setStartingCredits] = useState(String(DEFAULT_STARTING_CREDITS));
+  const [userNotice, setUserNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .creditStatus()
+      .then((status) => {
+        if (active) setIsOperator(status.is_operator);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const newWorkspace = isOperator && ownWorkspace;
+  const suggestedWorkspace = workspaceFromEmail(newUserEmail);
+  const effectiveWorkspaceName = workspaceNameEdited ? workspaceName : suggestedWorkspace;
 
   const applyAdminData = useCallback((data: AdminData) => {
     setStatusData(data.status);
@@ -121,16 +158,26 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.createUser({
+      const credits = Math.max(0, Math.floor(Number(startingCredits) || 0));
+      const created = await api.createUser({
         email: newUserEmail,
         password: newUserPassword,
         full_name: newUserName,
         role: newUserRole,
+        ...(newWorkspace ? { workspace_name: effectiveWorkspaceName.trim() || suggestedWorkspace || newUserEmail, starting_credits: credits } : {}),
       });
+      setUserNotice(
+        created.workspace
+          ? `Created ${created.email} as ${created.role} of the new workspace “${created.workspace.name}” with ${created.credits_granted.toLocaleString("en-US")} credits.`
+          : `Created ${created.email} in this workspace.`,
+      );
       setShowUserModal(false);
       setNewUserEmail("");
       setNewUserPassword("");
       setNewUserName("");
+      setWorkspaceName("");
+      setWorkspaceNameEdited(false);
+      setStartingCredits(String(DEFAULT_STARTING_CREDITS));
       await loadData();
     } catch (err: unknown) {
       alert("Failed to create user: " + errorText(err));
@@ -396,10 +443,22 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
                 Manage team members, roles (ADMIN, MEMBER, AUDITOR), and account status.
               </p>
             </div>
-            <button className="btn btn-primary" onClick={() => setShowUserModal(true)}>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setUserNotice(null);
+                if (isOperator && ownWorkspace) setNewUserRole("ADMIN");
+                setShowUserModal(true);
+              }}
+            >
               + Invite / Create User
             </button>
           </div>
+          {userNotice && (
+            <p role="status" style={{ margin: "0 0 12px", padding: "10px 12px", borderRadius: "10px", background: "rgba(61, 220, 132, 0.12)", fontSize: "0.85rem" }}>
+              {userNotice}
+            </p>
+          )}
 
           <div className="data-table-container">
             <table className="data-table">
@@ -468,6 +527,63 @@ export const AdminConsole: React.FC<{ role: string }> = ({ role }) => {
                       onChange={(e) => setNewUserEmail(e.target.value)}
                     />
                   </div>
+                  {isOperator && (
+                    <div>
+                      <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Workspace</label>
+                      <div style={{ display: "flex", gap: "16px", marginTop: "6px", fontSize: "0.9rem" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <input
+                            type="radio"
+                            name="workspace-choice"
+                            checked={ownWorkspace}
+                            onChange={() => {
+                              setOwnWorkspace(true);
+                              setNewUserRole("ADMIN");
+                            }}
+                          />
+                          New workspace
+                        </label>
+                        <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <input type="radio" name="workspace-choice" checked={!ownWorkspace} onChange={() => setOwnWorkspace(false)} />
+                          This workspace
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                  {newWorkspace && (
+                    <>
+                      <div>
+                        <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Workspace name</label>
+                        <input
+                          type="text"
+                          className="input-field"
+                          required
+                          placeholder="e.g. Acme"
+                          value={effectiveWorkspaceName}
+                          onChange={(e) => {
+                            setWorkspaceName(e.target.value);
+                            setWorkspaceNameEdited(true);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Starting credits</label>
+                        <input
+                          type="number"
+                          className="input-field"
+                          min={0}
+                          max={1000000}
+                          step={1}
+                          required
+                          value={startingCredits}
+                          onChange={(e) => setStartingCredits(e.target.value)}
+                        />
+                        <small style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                          Added to the new workspace&apos;s balance and shown in its credit history. Default {DEFAULT_STARTING_CREDITS}.
+                        </small>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Temporary Password</label>
                     <input

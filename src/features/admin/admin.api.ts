@@ -14,8 +14,10 @@ export const adminApi = {
   updateRelationshipStatus: (id: number, status: string) =>
     apiRequest<TableRelationship>(`/api/admin/relationships/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
   listUsers: () => apiRequest<User[]>("/api/admin/users"),
-  createUser: (data: { email: string; password: string; full_name: string; role: string }) =>
-    apiRequest<User>("/api/admin/users", { method: "POST", body: JSON.stringify(data) }),
+  createUser: (data: { email: string; password: string; full_name: string; role: string; workspace_name?: string | null; starting_credits?: number | null }) =>
+    apiRequest<User & { workspace: { id: number; name: string } | null; credits_granted: number }>("/api/admin/users", { method: "POST", body: JSON.stringify(data) }),
+  /** Whether the signed-in user is a credit operator (may create workspaces and give credits). */
+  creditStatus: () => apiRequest<{ is_operator: boolean }>("/api/credits"),
   updateUser: (id: number, data: { role?: string; is_active?: boolean }) =>
     apiRequest<User>(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   listAuditEvents: () => apiRequest<AuditEvent[]>("/api/admin/audit"),

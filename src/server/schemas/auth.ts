@@ -19,11 +19,17 @@ export const bootstrapRequestSchema = z.object({
   org_slug: z.string().trim().min(1).max(100),
 });
 
+export { DEFAULT_STARTING_CREDITS } from "@/lib/credits";
+
 export const adminCreateUserRequestSchema = z.object({
   email: emailField,
   password: z.string().min(PASSWORD_MIN_LENGTH).max(1024),
   full_name: z.string().trim().min(1).max(255),
   role: z.enum(USER_ROLES).default("MEMBER"),
+  /** Credit operators only: create the user in a new workspace with this name (instead of the admin's own). */
+  workspace_name: z.string().trim().min(1).max(255).nullable().default(null),
+  /** Credit operators only, with `workspace_name`: credits the new workspace starts with. */
+  starting_credits: z.number().int().min(0).max(1_000_000).nullable().default(null),
 });
 
 export const adminUpdateUserRequestSchema = z.object({
