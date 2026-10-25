@@ -7,7 +7,7 @@ export const SITE = {
   tagline: "Sales data for people who sell",
   description:
     "The Tentact reaches across the live web to find the buyers you sell to — verified, complete and ready to work.",
-  salesEmail: "sales@redmarten.com",
+  salesEmail: "sales@tentact.org",
   demoUrl: "https://cal.com/sales-tentact-qcvuzq/30mins",
   /** The landing page chat assistant (the mascot). */
   assistantName: "Mivy",
