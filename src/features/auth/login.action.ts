@@ -2,9 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { ROUTES, SITE } from "@/config/site";
-import { AuthConfigurationError } from "@/server/auth/config";
+import { AuthConfigurationError, getAuthConfig } from "@/server/auth/config";
 import { verifyCredentials, type AuthenticatedAccount } from "@/server/auth/credentials";
 import { createSession } from "@/server/auth/session";
+import { ensureDatabaseReady } from "@/server/bootstrap";
 import type { LoginFormState } from "./login.state";
 import { hasFieldErrors, validateLoginInput } from "./login.validation";
 
@@ -28,6 +29,8 @@ export async function loginAction(_previous: LoginFormState, formData: FormData)
 
   let account: AuthenticatedAccount | null;
   try {
+    getAuthConfig();
+    await ensureDatabaseReady();
     account = await verifyCredentials({ email, password });
   } catch (error) {
     if (error instanceof AuthConfigurationError) {
@@ -39,6 +42,6 @@ export async function loginAction(_previous: LoginFormState, formData: FormData)
 
   if (!account) return { status: "error", formError: INVALID_CREDENTIALS_MESSAGE, fieldErrors: {}, values };
 
-  await createSession({ email: account.email, workspaceName: account.workspaceName, remember });
+  await createSession({ userId: account.userId, remember });
   redirect(ROUTES.dashboard);
 }

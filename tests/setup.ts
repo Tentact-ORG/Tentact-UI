@@ -14,6 +14,7 @@ Object.assign(process.env, {
   CLICKHOUSE_MODE: "mock",
   CLICKHOUSE_DATABASE: "leadgen_warehouse",
   JWT_SECRET_KEY: "test_secret_key_with_at_least_32_characters!!",
+  TENTACT_AUTH_SECRET: "test_session_secret_with_at_least_32_chars!!",
   EXPORT_STORAGE_PATH: path.join(runDir, "exports"),
   EXPORT_MAX_ROWS: "100000",
 });

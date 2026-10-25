@@ -37,7 +37,8 @@ export function LoginForm({ authConfigured }: LoginFormProps) {
           {process.env.NODE_ENV !== "production" && (
             <>
               {" "}
-              Set <code>TENTACT_AUTH_SECRET</code> and <code>TENTACT_AUTH_ACCOUNTS</code> (see <code>.env.example</code>).
+              Set <code>TENTACT_AUTH_SECRET</code> (see <code>.env.example</code>) and create the first administrator with{" "}
+              <code>npm run bootstrap-admin</code>.
             </>
           )}
         </p>

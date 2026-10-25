@@ -15,10 +15,26 @@ const EXPORT_CLEANUP_INTERVAL_MS = 3600_000;
 
 interface AppState {
   init: Promise<void> | null;
+  database: Promise<void> | null;
   timers: NodeJS.Timeout[];
 }
 
-const state = singleton<AppState>("appState", () => ({ init: null, timers: [] }));
+const state = singleton<AppState>("appState", () => ({ init: null, database: null, timers: [] }));
+
+/**
+ * Creates the application tables once per process. Pages that only need the
+ * application database (sign-in, session checks) await this instead of the full
+ * startup, which also waits for ClickHouse schema discovery.
+ */
+export function ensureDatabaseReady(): Promise<void> {
+  if (state.database === null) {
+    state.database = migrateDatabase().catch((err: unknown) => {
+      state.database = null;
+      throw err;
+    });
+  }
+  return state.database;
+}
 
 async function backgroundValueDiscovery(): Promise<void> {
   logger.info("Starting background distinct-value discovery task...");
@@ -44,7 +60,7 @@ async function initialize(): Promise<void> {
   logger.info(`Initializing LeadGen AI Platform (env: ${settings.APP_ENV})...`);
 
   // 1. Application database tables
-  await migrateDatabase();
+  await ensureDatabaseReady();
 
   // 2. Discover the ClickHouse schema and relationships before serving searches.
   await schemaDiscoveryService.loadSchemaCache();
@@ -95,5 +111,6 @@ export async function shutdownApp(): Promise<void> {
   await chService.close();
   await closeDb();
   state.init = null;
+  state.database = null;
   logger.info("LeadGen AI Platform shut down gracefully.");
 }
