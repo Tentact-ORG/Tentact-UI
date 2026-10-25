@@ -11,8 +11,21 @@ import { SQL_REVIEWER_SYSTEM_PROMPT } from "./agentPrompts";
 import { llmAdapter } from "./llmAdapter";
 import { relationshipService } from "./relationshipDiscovery";
 import { schemaDiscoveryService } from "./schemaDiscovery";
+import { sqlValidator } from "./sqlValidator";
 
 const logger = getLogger("leadgen.sql_reviewer");
+
+/**
+ * The deterministic validator's column access-control verdict for this query and
+ * role, given to the reviewer so it never has to guess column permissions.
+ */
+function accessControlResult(sql: string, role: string): string {
+  const { violations } = sqlValidator.validateSql(sql, role, true);
+  const denied = violations.filter((v) => v.startsWith("Access denied") || v.includes("marked unapproved"));
+  return denied.length === 0
+    ? `PASSED: the query reads no column that role ${role} may not access.`
+    : `FAILED: ${denied.join(" ")}`;
+}
 
 /** Agent 2: independently reviews generated SQL before anything is executed. */
 class SQLReviewerAgent {
@@ -37,7 +50,7 @@ class SQLReviewerAgent {
           columns: Object.fromEntries(
             Object.entries(info.columns).map(([name, meta]) => [
               name,
-              `${meta.type} (approved=${meta.is_approved ? "True" : "False"})`,
+              `${meta.type} (approved=${meta.is_approved ? "True" : "False"}, sensitivity=${meta.sensitivity})`,
             ]),
           ),
         };
@@ -55,6 +68,7 @@ ${JSON.stringify(approvedJoins, null, 2)}
 
 User Context:
 Role: ${rep.user_role}
+Deterministic access-control check: ${accessControlResult(genOutput.clickhouse_sql, rep.user_role)}
 Natural Query: ${naturalQuery || "None provided"}
 Intermediate Search Representation:
 ${JSON.stringify(rep, null, 2)}
@@ -74,7 +88,7 @@ ${JSON.stringify(genOutput.assumptions, null, 2)}
 Evaluate the query and return your independent review verdict in strict JSON format.
 `;
 
-    const responseText = await llmAdapter.generateCompletion(SQL_REVIEWER_SYSTEM_PROMPT, userPrompt);
+    const responseText = await llmAdapter.generateCompletion(SQL_REVIEWER_SYSTEM_PROMPT, userPrompt, undefined, undefined, "reviewer");
     try {
       return sqlReviewerOutputSchema.parse(parseFencedJson(responseText));
     } catch (err) {

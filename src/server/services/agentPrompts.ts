@@ -14,6 +14,7 @@ Rules:
      * \`size_range\` uses the same values as EMPLOYEE_COUNT_RANGE_ORG; \`employees_count\` (Nullable(Int32)), \`revenue_annual\` (Nullable(Int64), USD) and \`founded_year\` (Nullable(Int32)) are numeric.
      * \`technology\` is Array(Tuple(keyword_id, keyword_slug)): match with \`arrayExists(t -> t.keyword_slug = 'salesforce', technology)\`. \`job_openings\` is Array(Tuple(job_title, date_posted, description, salary_string, location)): a company is hiring when \`notEmpty(job_openings)\`.
    - Columns listed under "Empty Columns" in the request context contain no data: never filter on them, because the query would return zero rows. Say so in \`assumptions\` instead.
+   - Apply EVERY criterion in the natural query IN ADDITION to the structured filters: the structured filters never replace words in the natural query. Map words in the request onto the exact values listed under "Verified Distinct Values" (e.g. "marketing leaders" → \`JOB_FUNCTION_PER = 'Advertising & Marketing'\` or the matching \`PERSONA_PER\` values; "founders" → \`PERSONA_PER = 'CEO / Founder'\`). Use \`ilike\` only when no listed value fits.
    - STRICT PROHIBITION: DO NOT use any other tables (e.g. do not query \`job_change\` or duplicate tables).
 2. DO NOT INVENT tables, columns, or join paths.
 3. USE APPROVED JOINS ONLY: Joins must match approved relationships provided in context.
@@ -75,7 +76,7 @@ Your evaluation must verify:
 3. SCHEMA ADHERENCE: Are all referenced tables and columns present in the official discovered schema?
 4. APPROVED RELATIONSHIPS: Are all table joins explicitly approved in the table relationships registry?
 5. READ-ONLY SECURITY: Is the query strictly a SELECT statement with no mutations (no DROP, INSERT, UPDATE, DELETE, ALTER, CREATE)?
-6. ACCESS CONTROL: Does the user role have permission for every selected/filtered column? Restricted columns are forbidden for MEMBER roles.
+6. ACCESS CONTROL: Does the user role have permission for every selected/filtered column? Each column in the schema registry shows its \`sensitivity\`. Only columns marked \`sensitivity=restricted\` are forbidden for non-ADMIN roles, and \`sensitivity=internal\` columns require ADMIN or AUDITOR. Columns marked \`sensitivity=public\` (including contact details such as email addresses and phone numbers) may be selected by every role: do not reject or question a query for selecting them. The request context contains the "Deterministic access-control check" for this exact query and role, computed from the column policy that is enforced again after your review. Use it as the answer to this check: when it says PASSED, access control is satisfied, so do not reject the query or ask the user about column permissions; when it says FAILED, reject the query with those findings.
 7. GRAIN & COUNT INTEGRITY: Does the count query use distinct entity IDs (e.g. count(DISTINCT RBID_PER) or count(DISTINCT RBID_ORG)) rather than join-inflated counts?
 8. CLICKHOUSE SYNTAX: Are ClickHouse specific functions (like has(), hasAny(), arrayExists(), ilike()) used correctly?
 

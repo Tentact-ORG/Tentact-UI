@@ -102,6 +102,8 @@ const settingsSchema = z
     AZURE_OPENAI_DEPLOYMENT: envOptionalStr,
     /** For reasoning deployments (gpt-5, o-series); leave unset for others. */
     AZURE_OPENAI_REASONING_EFFORT: z.enum(["minimal", "low", "medium", "high"]).optional(),
+    /** Reasoning effort for the reviewer agent; defaults to AZURE_OPENAI_REASONING_EFFORT. */
+    AZURE_OPENAI_REVIEWER_REASONING_EFFORT: z.enum(["minimal", "low", "medium", "high"]).optional(),
     /** Only sent when set: reasoning deployments accept nothing but the default. */
     AZURE_OPENAI_TEMPERATURE: z
       .string()

@@ -10,6 +10,8 @@ const DEFAULT_ANTHROPIC_MODEL = "claude-opus-5-5";
 // Models that accept the server-side `fallbacks: "default"` refusal fallback on the Claude API.
 const DEFAULT_FALLBACK_MODELS = new Set(["claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"]);
 
+export type LLMAgent = "generator" | "reviewer";
+
 /** Provider failure with a message that is safe to surface to API clients (no URLs or keys). */
 export class LLMProviderError extends Error {
   constructor(message: string) {
@@ -59,7 +61,14 @@ function requireKey(name: string, value: string | null): string {
  * OpenAI (or compatible), Anthropic and Google Gemini.
  */
 export class LLMAdapter {
-  async generateCompletion(systemPrompt: string, userPrompt: string, temperature?: number, timeoutSec?: number): Promise<string> {
+  async generateCompletion(
+    systemPrompt: string,
+    userPrompt: string,
+    temperature?: number,
+    timeoutSec?: number,
+    /** Which agent is asking; lets providers tune per agent (e.g. Azure reasoning effort). */
+    agent: LLMAgent = "generator",
+  ): Promise<string> {
     const s = getSettings();
     const provider = s.LLM_PROVIDER.toLowerCase();
     const temp = temperature ?? s.LLM_TEMPERATURE;
@@ -77,7 +86,7 @@ export class LLMAdapter {
       case "gemini":
         return this.generateGemini(systemPrompt, userPrompt, temp, timeout);
       case "azure":
-        return this.generateAzure(systemPrompt, userPrompt, timeout);
+        return this.generateAzure(systemPrompt, userPrompt, timeout, agent);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
@@ -195,7 +204,7 @@ export class LLMAdapter {
    * AZURE_OPENAI_TEMPERATURE is set, because reasoning deployments (gpt-5, o-series)
    * reject anything but the default; they also require max_completion_tokens.
    */
-  private async generateAzure(system: string, user: string, timeout: number): Promise<string> {
+  private async generateAzure(system: string, user: string, timeout: number, agent: LLMAgent): Promise<string> {
     const s = getSettings();
     const client = new OpenAI({
       apiKey: requireKey("AZURE_OPENAI_API_KEY", s.AZURE_OPENAI_API_KEY),
@@ -203,6 +212,7 @@ export class LLMAdapter {
       timeout: timeout * 1000,
     });
     const deployment = requireKey("AZURE_OPENAI_DEPLOYMENT", s.AZURE_OPENAI_DEPLOYMENT);
+    const effort = agent === "reviewer" ? (s.AZURE_OPENAI_REVIEWER_REASONING_EFFORT ?? s.AZURE_OPENAI_REASONING_EFFORT) : s.AZURE_OPENAI_REASONING_EFFORT;
 
     let completion: OpenAI.Chat.Completions.ChatCompletion;
     try {
@@ -214,7 +224,7 @@ export class LLMAdapter {
         ],
         response_format: { type: "json_object" },
         max_completion_tokens: 16000,
-        ...(s.AZURE_OPENAI_REASONING_EFFORT ? { reasoning_effort: s.AZURE_OPENAI_REASONING_EFFORT } : {}),
+        ...(effort ? { reasoning_effort: effort } : {}),
         ...(s.AZURE_OPENAI_TEMPERATURE !== null ? { temperature: s.AZURE_OPENAI_TEMPERATURE } : {}),
       });
     } catch (err) {

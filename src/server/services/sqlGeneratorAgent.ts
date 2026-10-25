@@ -10,6 +10,10 @@ import { valueDiscoveryService } from "./valueDiscovery";
 
 const logger = getLogger("leadgen.sql_generator");
 
+/** Categorical columns whose full value list is given to the model, and the largest list included. */
+const MAX_VOCABULARY_COLUMNS = 40;
+const MAX_VOCABULARY_VALUES = 60;
+
 /** Agent 1: translates the intermediate representation into candidate ClickHouse SQL. */
 class SQLGeneratorAgent {
   async generateSql(rep: IntermediateSearchRepresentation, naturalQuery: string | null): Promise<SQLGeneratorOutput> {
@@ -28,11 +32,23 @@ class SQLGeneratorAgent {
       schemaLines.push(`Table ${tbl}${rowNote}: ${cols.join(", ")}`);
     }
 
-    // A compact sample of verified categorical values to ground the model.
+    // The complete vocabularies of small categorical columns in approved tables (job levels, functions,
+    // personas, employee and revenue bands…), so values in the request map onto values that exist.
     const verifiedSampleValues: Record<string, unknown[]> = {};
-    for (const [key, entry] of Object.entries(cachedValues).slice(0, 12)) {
-      if (entry.strategy === "categorical_enum" && Array.isArray(entry.values)) {
-        verifiedSampleValues[key] = entry.values.slice(0, 6);
+    for (const [key, entry] of Object.entries(cachedValues)) {
+      const column = schema[entry.table]?.columns[entry.column];
+      if (
+        Object.keys(verifiedSampleValues).length < MAX_VOCABULARY_COLUMNS &&
+        entry.strategy === "categorical_enum" &&
+        entry.completeness === "complete" &&
+        Array.isArray(entry.values) &&
+        entry.values.length > 0 &&
+        entry.values.length <= MAX_VOCABULARY_VALUES &&
+        schema[entry.table]?.is_approved &&
+        column?.is_approved &&
+        column.sensitivity !== "restricted"
+      ) {
+        verifiedSampleValues[key] = entry.values;
       }
     }
 
