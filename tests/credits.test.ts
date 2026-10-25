@@ -10,7 +10,7 @@ import { getCodec, getDb } from "@/server/core/database";
 import { hashPassword } from "@/server/core/security";
 import { toUser, type User } from "@/server/models/entities";
 import { searchRequestSchema } from "@/server/schemas/search";
-import { maskEmail, maskPhone } from "@/server/services/contactMasking";
+import { contactIdOf, maskEmail, maskPhone } from "@/server/services/contactMasking";
 import { creditService, InsufficientCreditsError } from "@/server/services/creditService";
 import { exportService } from "@/server/services/exportService";
 import { searchPlanCache } from "@/server/services/searchPlanCache";
@@ -148,5 +148,13 @@ describe("credits", () => {
     expect(maskEmail("maya.rao@northwind.example")).toBe("ma•••@northwind.example");
     expect(maskPhone("+1 (555) 010-0199")).toBe("••• 0199");
     expect(maskPhone("12")).toBe("•••");
+  });
+});
+
+describe("contact ids", () => {
+  it("picks the id with the dashboard's priority, whatever the column order", () => {
+    expect(contactIdOf({ id: "org-1", RBID_PER: "per-1" })).toBe("per-1");
+    expect(contactIdOf({ RBID_PER: " ", id: 7 })).toBe("7");
+    expect(contactIdOf({ name: "x" })).toBeNull();
   });
 });

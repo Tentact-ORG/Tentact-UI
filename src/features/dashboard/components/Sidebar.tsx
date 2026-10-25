@@ -7,6 +7,8 @@ import { BrandMark } from "@/components/brand/BrandMark";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { buildSalesMailto, ROUTES, SITE } from "@/config/site";
 import { cx } from "@/lib/cx";
+import { formatThousands } from "@/lib/math";
+import { useCreditSummary } from "../credits/useCredits";
 import type { WorkspaceSummary } from "../dashboard.types";
 import { DASHBOARD_PAGES } from "../navigation";
 import { BookIcon, CloseIcon, HelpIcon, HomeIcon, SearchIcon, SettingsIcon, UsersIcon } from "./icons";
@@ -77,6 +79,7 @@ function NavLink({ item, active, onNavigate }: { item: NavItem; active: boolean;
 
 export function Sidebar({ id, workspace, canAdmin, open, compact, onClose, onSearch }: SidebarProps) {
   const pathname = usePathname();
+  const { summary: credits } = useCreditSummary();
 
   const groups: NavGroup[] = [
     {
@@ -155,8 +158,17 @@ export function Sidebar({ id, workspace, canAdmin, open, compact, onClose, onSea
       </nav>
 
       <div className={styles.promo}>
-        <p className={styles.promoTitle}>Running low on credits?</p>
-        <p className={styles.promoBody}>Top up to keep exporting verified emails and direct dials.</p>
+        {credits?.enabled ? (
+          <>
+            <p className={styles.promoTitle}>{formatThousands(credits.balance)} credits left</p>
+            <p className={styles.promoBody}>Each new contact you reveal or export costs {credits.cost_per_contact}. Contacts you have paid for stay free.</p>
+          </>
+        ) : (
+          <>
+            <p className={styles.promoTitle}>Running low on credits?</p>
+            <p className={styles.promoBody}>Top up to keep exporting verified emails and direct dials.</p>
+          </>
+        )}
         <ButtonLink
           variant="ink"
           href={DASHBOARD_PAGES.credits.href}

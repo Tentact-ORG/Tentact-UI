@@ -22,13 +22,14 @@ export function isContactDetailColumn(column: string): boolean {
   return CONTACT_DETAIL.test(column) && !NOT_CONTACT_DETAIL.test(column);
 }
 
-/** The person identifier of a result row, if it has one. */
+/** The person identifier of a result row, if it has one (same priority as the dashboard's prospect id). */
 export function contactIdOf(record: Record<string, unknown>): string | null {
-  for (const key of Object.keys(record)) {
-    if (CONTACT_ID_KEYS.includes(key.toLowerCase())) {
-      const value = record[key];
-      if (value !== null && value !== undefined && String(value).trim() !== "") return String(value).trim();
-    }
+  const keys = new Map(Object.keys(record).map((key) => [key.toLowerCase(), key]));
+  for (const name of CONTACT_ID_KEYS) {
+    const key = keys.get(name);
+    if (key === undefined) continue;
+    const value = record[key];
+    if (value !== null && value !== undefined && String(value).trim() !== "") return String(value).trim();
   }
   return null;
 }

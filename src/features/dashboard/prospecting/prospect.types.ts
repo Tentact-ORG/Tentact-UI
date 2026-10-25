@@ -50,6 +50,10 @@ export interface Prospect {
   jobChangeDays: number | null;
   sources: string[];
   company: ProspectCompany;
+  /** True while the email and phone are masked: they're revealed for credits (see `useProspectSearch.reveal`). */
+  contactMasked?: boolean;
+  /** The search result the masked details can be revealed from. */
+  resultId?: string | null;
 }
 
 export interface ProspectFilters {

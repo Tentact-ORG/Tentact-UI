@@ -26,6 +26,9 @@ interface ProspectTableProps {
   onToggleSelect: (id: string) => void;
   onTogglePage: (ids: string[], select: boolean) => void;
   onClearSelection: () => void;
+  /** Selected prospects whose email and phone are still masked; saving or exporting reveals them for credits. */
+  maskedInSelection: number;
+  onRevealSelection: () => void;
   onSaveSelectionAsList: (name: string) => void;
   onExportSelection: () => void;
   onClearFilters: () => void;
@@ -135,6 +138,8 @@ export function ProspectTable({
   onToggleSelect,
   onTogglePage,
   onClearSelection,
+  maskedInSelection,
+  onRevealSelection,
   onSaveSelectionAsList,
   onExportSelection,
   onClearFilters,
@@ -161,6 +166,14 @@ export function ProspectTable({
         {selectedIds.size > 0 && (
           <div className={styles.bulkBar} role="toolbar" aria-label="Selection actions">
             <b>{selectedIds.size} selected</b>
+            {maskedInSelection > 0 && (
+              <Button variant="line" onClick={onRevealSelection} title="Each contact not revealed before costs credits, once">
+                <MailIcon />
+                <span>
+                  Reveal {maskedInSelection} contact{maskedInSelection === 1 ? "" : "s"}
+                </span>
+              </Button>
+            )}
             <SaveListForm onSave={onSaveSelectionAsList} />
             <Button variant="line" onClick={onExportSelection}>
               <DownloadIcon />
@@ -236,6 +249,11 @@ export function ProspectTable({
                           <span className={styles.stack}>
                             <b>{fullName(prospect)}</b>
                             <small>{prospect.title}</small>
+                            {prospect.email && (
+                              <small className={cx(prospect.contactMasked && styles.muted)} title={prospect.contactMasked ? "Reveal to see the full email (costs credits)" : undefined}>
+                                {prospect.email}
+                              </small>
+                            )}
                           </span>
                         </span>
                       </td>

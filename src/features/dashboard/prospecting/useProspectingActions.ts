@@ -2,7 +2,8 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { dashboardApi, errorText } from "../api/dashboard.api";
+import { ApiError, dashboardApi, errorText } from "../api/dashboard.api";
+import { notifyCreditsChanged } from "../credits/useCredits";
 import { DASHBOARD_PAGES } from "../navigation";
 import { useWorkspaceData } from "../WorkspaceDataContext";
 import { buildCsv, downloadTextFile, exportFilename } from "./prospect.export";
@@ -49,6 +50,30 @@ export function useProspectingActions() {
     [enrichment, announce],
   );
 
+  /**
+   * Reveals the masked contact details among `items` (charging credits for new
+   * contacts) and returns the prospects unmasked, or null when it failed.
+   */
+  const revealProspects = useCallback(
+    async (items: readonly Prospect[]): Promise<Prospect[] | null> => {
+      try {
+        const outcome = await search.reveal(items);
+        if (outcome.revealed > 0) {
+          announce(
+            `Revealed ${outcome.revealed} contact${outcome.revealed === 1 ? "" : "s"}` +
+              (outcome.charged > 0 ? ` for ${outcome.charged} credit${outcome.charged === 1 ? "" : "s"}.` : " (already paid for)."),
+          );
+        }
+        return outcome.prospects;
+      } catch (error) {
+        const topUp = error instanceof ApiError && error.status === 402 ? " Top up on the Credits page." : "";
+        announce(`${errorText(error, "The contacts couldn't be revealed.")}${topUp}`);
+        return null;
+      }
+    },
+    [search, announce],
+  );
+
   /** Every result of the last search, generated as a server-side export job and downloaded when ready. */
   const exportResults = useCallback(async () => {
     const { searchedRequest, total } = search.state;
@@ -73,6 +98,8 @@ export function useProspectingActions() {
     } catch (error) {
       announce(errorText(error, "The export couldn't be started."));
     } finally {
+      // Exporting contact details charges credits for contacts not paid for yet.
+      notifyCreditsChanged();
       if (mounted.current) setExporting(false);
     }
   }, [search.state, exporting, announce]);
@@ -148,6 +175,7 @@ export function useProspectingActions() {
   );
 
   return {
+    revealProspects,
     exportProspects,
     exportResults,
     exporting,

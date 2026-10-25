@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useReducer, useRef, useState } from "react";
 import { dashboardApi, errorText, type SearchDiagnostic, type SearchRequestBody } from "../api/dashboard.api";
+import { notifyCreditsChanged } from "../credits/useCredits";
 import { recordToProspect } from "./prospect.mapping";
 import { summariseProspects } from "./prospect.matching";
 import { hasSearchCriteria, toSearchRequest, type CountryNames } from "./prospect.query";
@@ -77,6 +78,13 @@ const INITIAL_SEARCH: SearchState = {
   searchedRequest: null,
 };
 
+/** What revealing a set of prospects cost and the prospects with their details filled in. */
+export interface RevealOutcome {
+  prospects: Prospect[];
+  charged: number;
+  revealed: number;
+}
+
 export const NO_CRITERIA_MESSAGE = "Describe who you're looking for or choose a filter, then press Enter to search.";
 
 /** Filter state plus server-side search: run explicitly, with paging through the loaded results. */
@@ -85,6 +93,8 @@ export function useProspectSearch(countries: CountryNames) {
   const [state, setState] = useState<SearchState>(INITIAL_SEARCH);
   // Each request gets a number; responses to superseded requests are ignored.
   const requestSeq = useRef(0);
+  // The raw rows behind the loaded prospects, so revealed contact details can be merged back in.
+  const rows = useRef(new Map<string, { row: Record<string, unknown>; index: number }>());
 
   const execute = useCallback(
     async (target: ProspectFilters, page: number) => {
@@ -113,7 +123,14 @@ export function useProspectSearch(countries: CountryNames) {
           return;
         }
         const offset = (page - 1) * response.page_size;
-        const loaded = response.records.map((record, index) => recordToProspect(record, offset + index));
+        const revealedIds = new Set(response.revealed_ids);
+        if (!appending) rows.current.clear();
+        const loaded = response.records.map((record, index) => {
+          const prospect = recordToProspect(record, offset + index);
+          rows.current.set(prospect.id, { row: record, index: offset + index });
+          const masked = response.contact_details_masked && response.result_id !== null && !revealedIds.has(prospect.id);
+          return masked ? { ...prospect, contactMasked: true, resultId: response.result_id } : prospect;
+        });
         setState((current) => {
           const previous = appending ? current.results : [];
           const seen = new Set(previous.map((prospect) => prospect.id));
@@ -144,6 +161,41 @@ export function useProspectSearch(countries: CountryNames) {
     if (state.searchedFilters && state.page < state.totalPages) void execute(state.searchedFilters, state.page + 1);
   }, [execute, state.searchedFilters, state.page, state.totalPages]);
 
+  /**
+   * Reveals (paying credits for contacts the workspace hasn't paid for yet) the
+   * masked contact details among `prospects` and returns them unmasked. Throws
+   * the ApiError of a failed reveal (402 when the balance is too low).
+   */
+  const reveal = useCallback(async (prospects: readonly Prospect[]): Promise<RevealOutcome> => {
+    const byResult = new Map<string, string[]>();
+    for (const prospect of prospects) {
+      if (prospect.contactMasked && prospect.resultId) byResult.set(prospect.resultId, [...(byResult.get(prospect.resultId) ?? []), prospect.id]);
+    }
+    if (byResult.size === 0) return { prospects: [...prospects], charged: 0, revealed: 0 };
+
+    const unmasked = new Map<string, Prospect>();
+    let charged = 0;
+    try {
+      for (const [resultId, ids] of byResult) {
+        const response = await dashboardApi.reveal(resultId, ids);
+        charged += response.charged;
+        for (const [id, details] of Object.entries(response.contacts)) {
+          const stored = rows.current.get(id);
+          if (!stored) continue;
+          const row = { ...stored.row, ...details };
+          rows.current.set(id, { row, index: stored.index });
+          unmasked.set(id, recordToProspect(row, stored.index));
+        }
+      }
+    } finally {
+      if (charged > 0 || unmasked.size > 0) notifyCreditsChanged();
+      if (unmasked.size > 0) {
+        setState((current) => ({ ...current, results: current.results.map((prospect) => unmasked.get(prospect.id) ?? prospect) }));
+      }
+    }
+    return { prospects: prospects.map((prospect) => unmasked.get(prospect.id) ?? prospect), charged, revealed: unmasked.size };
+  }, []);
+
   const setQuery = useCallback((value: string) => dispatch({ type: "query", value }), []);
   const toggleOption = useCallback((key: MultiFilterKey, value: string) => dispatch({ type: "toggleOption", key, value }), []);
   const setToggle = useCallback((key: ToggleFilterKey, value: boolean) => dispatch({ type: "setToggle", key, value }), []);
@@ -173,6 +225,7 @@ export function useProspectSearch(countries: CountryNames) {
       hasMore,
       run,
       loadMore,
+      reveal,
       setQuery,
       toggleOption,
       setToggle,
@@ -181,7 +234,7 @@ export function useProspectSearch(countries: CountryNames) {
       replaceFilters,
       clearAll,
     }),
-    [filters, state, results, summary, dirty, busy, hasMore, run, loadMore, setQuery, toggleOption, setToggle, setJobChange, clearField, replaceFilters, clearAll],
+    [filters, state, results, summary, dirty, busy, hasMore, run, loadMore, reveal, setQuery, toggleOption, setToggle, setJobChange, clearField, replaceFilters, clearAll],
   );
 }
 

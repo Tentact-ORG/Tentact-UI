@@ -38,6 +38,9 @@ export const prospectSnapshotSchema = z.object({
     funding: text(200),
     intent: nullableText(100),
   }),
+  // Search-time state; the dashboard reveals contacts before saving, so lists normally carry neither.
+  contactMasked: z.boolean().optional(),
+  resultId: nullableText(64).optional(),
 });
 export type ProspectSnapshot = z.infer<typeof prospectSnapshotSchema>;
 

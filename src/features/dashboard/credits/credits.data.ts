@@ -30,9 +30,9 @@ export const CUSTOM_CREDITS = { min: 500, max: 1_000_000, step: 500 } as const;
 
 /** What a credit buys. Shown on the page so the unit is never ambiguous. */
 export const CREDIT_USES: readonly { action: string; cost: string }[] = [
-  { action: "Export a verified contact (email checked before delivery)", cost: "1 credit" },
-  { action: "Reveal a direct dial", cost: "1 credit" },
-  { action: "Enrich an existing record you upload", cost: "1 credit" },
+  { action: "Reveal a contact's email and phone in search results", cost: "1 credit" },
+  { action: "Export a contact with their email and phone", cost: "1 credit" },
+  { action: "Reveal or export a contact you have already paid for", cost: "Free" },
 ];
 
 export function formatUsd(amount: number): string {
@@ -52,9 +52,8 @@ export interface TopUpRequest {
 }
 
 /**
- * There is no payment backend yet, so a top-up is a pre-filled request to
- * sales, consistent with every other purchase action on the site. Replace this
- * with a checkout session when billing is connected.
+ * The email alternative to an in-app top-up request (POST /api/credits/requests),
+ * pre-filled for sales. Both stay until a payment provider is connected.
  */
 export function buildTopUpMailto({ credits, pack, workspaceName, email }: TopUpRequest): string {
   const subject = `Credit top-up: ${formatThousands(credits)} credits for ${workspaceName}`;

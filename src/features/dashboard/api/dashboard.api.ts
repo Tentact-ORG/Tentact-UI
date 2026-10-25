@@ -55,6 +55,58 @@ export interface SearchResponse {
   clarification_message: string | null;
   execution_time_ms: number;
   diagnostic: SearchDiagnostic | null;
+  /** Set when contact details are masked: reveal them through `reveal`. */
+  result_id: string | null;
+  /** Contacts the workspace already paid for (shown unmasked). */
+  revealed_ids: string[];
+  contact_details_masked: boolean;
+}
+
+export interface RevealResponse {
+  /** Contact id → unmasked contact-detail columns. */
+  contacts: Record<string, Record<string, unknown>>;
+  charged: number;
+  newly_revealed: number;
+  balance: number;
+}
+
+export interface CreditEntryRecord {
+  id: number;
+  delta: number;
+  balance_after: number;
+  reason: string;
+  reference: string | null;
+  created_at: string;
+}
+
+export interface CreditRequestRecord {
+  id: number;
+  credits: number;
+  pack: string | null;
+  status: "PENDING" | "APPROVED" | "DECLINED";
+  note: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export interface CreditSummary {
+  enabled: boolean;
+  cost_per_contact: number;
+  balance: number;
+  history: CreditEntryRecord[];
+  requests: CreditRequestRecord[];
+  is_operator: boolean;
+}
+
+export interface PendingCreditRequest {
+  id: number;
+  org_id: number;
+  workspace: string;
+  requested_by: string;
+  credits: number;
+  pack: string | null;
+  note: string | null;
+  created_at: string;
 }
 
 export interface ColumnValues {
@@ -140,6 +192,16 @@ export const dashboardApi = {
     apiRequest<ExportJobRecord>("/api/export", { method: "POST", body: jsonBody({ search_request: searchRequest, max_rows: maxRows }) }),
   getExport: (id: number) => apiRequest<ExportJobRecord>(`/api/export/${id}`),
   exportDownloadUrl: (token: string) => `/api/export/download/${encodeURIComponent(token)}`,
+
+  reveal: (resultId: string, contactIds: readonly string[]) =>
+    apiRequest<RevealResponse>("/api/contacts/reveal", { method: "POST", body: jsonBody({ result_id: resultId, contact_ids: contactIds }) }),
+
+  credits: () => apiRequest<CreditSummary>("/api/credits"),
+  requestCredits: (credits: number, pack: string | null) =>
+    apiRequest<CreditRequestRecord>("/api/credits/requests", { method: "POST", body: jsonBody({ credits, pack }) }),
+  pendingCreditRequests: () => apiRequest<PendingCreditRequest[]>("/api/credits/requests"),
+  decideCreditRequest: (id: number, status: "APPROVED" | "DECLINED") =>
+    apiRequest<{ id: number; status: string; balance: number | null }>(`/api/credits/requests/${id}`, { method: "PATCH", body: jsonBody({ status }) }),
 };
 
 export function errorText(error: unknown, fallback = "Something went wrong. Please try again."): string {

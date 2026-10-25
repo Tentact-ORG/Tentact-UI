@@ -46,12 +46,20 @@ export function SearchPage() {
       return next;
     });
 
-  const saveSelectionAsList = (name: string) => {
-    void actions.createList(
-      name,
-      results.filter((prospect) => visibleSelectedIds.has(prospect.id)),
-    );
+  const selection = results.filter((prospect) => visibleSelectedIds.has(prospect.id));
+  const maskedInSelection = selection.filter((prospect) => prospect.contactMasked).length;
+
+  // Lists and CSVs hold full contact details, so masked contacts are revealed (for credits) first.
+  const saveSelectionAsList = async (name: string) => {
+    const revealed = await actions.revealProspects(selection);
+    if (!revealed) return;
+    await actions.createList(name, revealed);
     setSelectedIds(new Set());
+  };
+
+  const exportSelection = async () => {
+    const revealed = await actions.revealProspects(selection);
+    if (revealed) actions.exportProspects(revealed, "selection");
   };
 
   return (
@@ -93,8 +101,10 @@ export function SearchPage() {
         onToggleSelect={toggleSelect}
         onTogglePage={togglePage}
         onClearSelection={() => setSelectedIds(new Set())}
-        onSaveSelectionAsList={saveSelectionAsList}
-        onExportSelection={() => actions.exportProspects(results.filter((p) => visibleSelectedIds.has(p.id)), "selection")}
+        maskedInSelection={maskedInSelection}
+        onRevealSelection={() => void actions.revealProspects(selection)}
+        onSaveSelectionAsList={(name) => void saveSelectionAsList(name)}
+        onExportSelection={() => void exportSelection()}
         onClearFilters={search.clearAll}
       />
 
