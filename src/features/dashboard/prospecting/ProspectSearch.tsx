@@ -51,12 +51,7 @@ const TABS: { id: FilterTab; label: string; Icon: typeof UserIcon }[] = [
  * click elsewhere closes it. Filters live in the dashboard's shared state, so
  * they carry over between pages.
  */
-interface ProspectSearchProps {
-  /** Called when a search runs (e.g. Home sends the user to the results page). */
-  onSearch?: () => void;
-}
-
-export function ProspectSearch({ onSearch }: ProspectSearchProps = {}) {
+export function ProspectSearch() {
   const { search, fields, fieldsReady, fieldsError } = useWorkspaceData();
   const { filters, state, dirty, busy, run, setQuery, toggleOption, setToggle, setJobChange, clearField, clearAll, replaceFilters } = search;
   const [interpretation, setInterpretation] = useState<Interpretation>({ status: "idle" });
@@ -96,8 +91,7 @@ export function ProspectSearch({ onSearch }: ProspectSearchProps = {}) {
     setOpen(false);
     setInterpretation({ status: "idle" });
     void run();
-    onSearch?.();
-  }, [run, onSearch]);
+  }, [run]);
 
   /**
    * Enter in the search bar: the typed request becomes filters the user reviews
@@ -138,8 +132,7 @@ export function ProspectSearch({ onSearch }: ProspectSearchProps = {}) {
     replaceFilters(typed);
     setInterpretation({ status: "idle" });
     void run(typed);
-    onSearch?.();
-  }, [interpretation, replaceFilters, run, onSearch]);
+  }, [interpretation, replaceFilters, run]);
 
   // Text that hasn't been turned into filters yet: Done does that first, like Enter.
   const pendingText = filters.query.trim() !== "" && !(interpretation.status === "ready" && filters.query.trim() === interpretation.remaining.trim());

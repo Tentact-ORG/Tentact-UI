@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { firstNameFromEmail } from "@/features/dashboard/dashboard.types";
-import { OverviewPage } from "@/features/dashboard/pages/OverviewPage";
+import { SearchPage } from "@/features/dashboard/pages/SearchPage";
 import { requireSession } from "@/server/auth/session";
 
-export const metadata: Metadata = { title: "Home" };
+export const metadata: Metadata = { title: "Prospect search" };
 
 export default async function Page() {
-  const session = await requireSession();
-  return <OverviewPage firstName={firstNameFromEmail(session.email)} workspaceName={session.workspaceName} />;
+  await requireSession();
+  return <SearchPage />;
 }

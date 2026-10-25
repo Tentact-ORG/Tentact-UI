@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { DataSourceBadge } from "../components/DataSourceBadge";
 import { PageHeader } from "../components/PageHeader";
+import { StatCard } from "../components/StatCard";
+import { percentage } from "../prospecting/prospect.matching";
 import { includesContactDetails } from "@/lib/exportFields";
 import { ActiveFilters } from "../prospecting/ActiveFilters";
 import { ExportDialog } from "../prospecting/ExportDialog";
@@ -14,7 +16,7 @@ import { useProspectingActions } from "../prospecting/useProspectingActions";
 import { useWorkspaceData } from "../WorkspaceDataContext";
 import styles from "./Pages.module.css";
 
-/** /home/search: the filter panel and the full, selectable results. */
+/** /home: the workspace — search and filters, saved searches, the results with their stats, lists and exports. */
 export function SearchPage() {
   const { search, role, savedSearches } = useWorkspaceData();
   const { filters, results, state } = search;
@@ -72,7 +74,7 @@ export function SearchPage() {
       <PageHeader
         eyebrow="Prospecting"
         title="Prospect search"
-        description="Search, review the results, and select prospects to save as a list or export. Your saved searches are below the filters."
+        description="Describe your buyers or use the filters, review the results, then save them as a list or export them."
         aside={<DataSourceBadge />}
       />
 
@@ -89,6 +91,16 @@ export function SearchPage() {
         onExport={(rows, fields) => void actions.exportResults(rows, fields)}
         searchedFilters={search.state.searchedFilters}
       />
+
+      {state.status === "success" && results.length > 0 && (
+        <section className={styles.stats} aria-label="Overview of the current results">
+          <StatCard label="Matching prospects" value={state.total} detail={state.exactCount ? "Distinct people in the warehouse" : "At least this many"} tone="ink" />
+          <StatCard label="Verified emails" value={search.summary.verifiedEmail} detail={`${percentage(search.summary.verifiedEmail, search.summary.total)}% of ${results.length.toLocaleString("en-US")} loaded`} tone="mint" />
+          <StatCard label="Phone numbers" value={search.summary.directDial} detail={`${percentage(search.summary.directDial, search.summary.total)}% of ${results.length.toLocaleString("en-US")} loaded`} tone="sky" />
+          <StatCard label="Changed jobs" value={search.summary.recentJobChanges} detail={`In the last 90 days, of ${results.length.toLocaleString("en-US")} loaded`} tone="yellow" />
+          <StatCard label="Hiring now" value={search.summary.hiring} detail={`At companies with open roles, of ${results.length.toLocaleString("en-US")} loaded`} tone="peach" />
+        </section>
+      )}
 
       {savedSearches.length > 0 && (
         <SavedSearches searches={savedSearches} onApply={actions.applySavedSearch} onDelete={(id) => void actions.deleteSavedSearch(id)} />

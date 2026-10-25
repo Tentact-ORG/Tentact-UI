@@ -11,7 +11,7 @@ import { formatThousands } from "@/lib/math";
 import { useCreditSummary } from "../credits/useCredits";
 import type { WorkspaceSummary } from "../dashboard.types";
 import { DASHBOARD_PAGES } from "../navigation";
-import { BookIcon, CloseIcon, HelpIcon, HomeIcon, SearchIcon, SettingsIcon, UsersIcon } from "./icons";
+import { BookIcon, CloseIcon, HelpIcon, SearchIcon, SettingsIcon, UsersIcon } from "./icons";
 import styles from "../DashboardShell.module.css";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -85,7 +85,6 @@ export function Sidebar({ id, workspace, canAdmin, open, compact, onClose, onSea
     {
       label: "Prospecting",
       items: [
-        { label: DASHBOARD_PAGES.overview.title, icon: HomeIcon, href: DASHBOARD_PAGES.overview.href },
         { label: DASHBOARD_PAGES.search.title, icon: SearchIcon, href: DASHBOARD_PAGES.search.href },
       ],
     },
@@ -122,7 +121,7 @@ export function Sidebar({ id, workspace, canAdmin, open, compact, onClose, onSea
       inert={compact && !open ? true : undefined}
     >
       <div className={styles.sidebarTop}>
-        <Link href={DASHBOARD_PAGES.overview.href} className={styles.workspace} onClick={onClose}>
+        <Link href={DASHBOARD_PAGES.search.href} className={styles.workspace} onClick={onClose}>
           <BrandMark size={36} className={styles.workspaceMark} />
           <div className={styles.workspaceText}>
             <b>{workspace.name}</b>

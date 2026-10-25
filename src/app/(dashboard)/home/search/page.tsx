@@ -1,10 +1,7 @@
-import type { Metadata } from "next";
-import { SearchPage } from "@/features/dashboard/pages/SearchPage";
-import { requireSession } from "@/server/auth/session";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/config/site";
 
-export const metadata: Metadata = { title: "Prospect search" };
-
-export default async function Page() {
-  await requireSession();
-  return <SearchPage />;
+/** Prospect search moved to the workspace home; old links land there. */
+export default function Page() {
+  redirect(ROUTES.dashboard);
 }
