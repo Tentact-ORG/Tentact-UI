@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { DataSourceBadge } from "../components/DataSourceBadge";
 import { PageHeader } from "../components/PageHeader";
+import { includesContactDetails } from "@/lib/exportFields";
 import { ActiveFilters } from "../prospecting/ActiveFilters";
+import { ExportDialog } from "../prospecting/ExportDialog";
 import type { ProspectFilters } from "../prospecting/prospect.types";
 import { ProspectSearch } from "../prospecting/ProspectSearch";
 import { PAGE_SIZE, ProspectTable } from "../prospecting/ProspectTable";
@@ -57,9 +59,11 @@ export function SearchPage() {
     setSelectedIds(new Set());
   };
 
-  const exportSelection = async () => {
-    const revealed = await actions.revealProspects(selection);
-    if (revealed) actions.exportProspects(revealed, "selection");
+  // Contacts are revealed (for credits) only when the export includes email or phone.
+  const [confirmingSelection, setConfirmingSelection] = useState(false);
+  const exportSelection = async (fields: readonly string[]) => {
+    const ready = includesContactDetails(fields) ? await actions.revealProspects(selection) : selection;
+    if (ready) actions.exportProspects(ready, "selection", fields);
   };
 
   return (
@@ -81,7 +85,7 @@ export function SearchPage() {
         onRemove={actions.removeChip}
         onClearAll={search.clearAll}
         onSaveSearch={(name) => void actions.saveCurrentSearch(name)}
-        onExport={(rows) => void actions.exportResults(rows)}
+        onExport={(rows, fields) => void actions.exportResults(rows, fields)}
         searchedFilters={search.state.searchedFilters}
       />
 
@@ -105,8 +109,16 @@ export function SearchPage() {
         maskedInSelection={maskedInSelection}
         onRevealSelection={() => void actions.revealProspects(selection)}
         onSaveSelectionAsList={(name) => void saveSelectionAsList(name)}
-        onExportSelection={() => void exportSelection()}
+        onExportSelection={() => setConfirmingSelection(true)}
         onClearFilters={search.clearAll}
+      />
+
+      <ExportDialog
+        open={confirmingSelection}
+        scope={{ kind: "selection", count: selection.length, masked: maskedInSelection }}
+        filters={state.searchedFilters}
+        onExport={(_rows, fields) => void exportSelection(fields)}
+        onClose={() => setConfirmingSelection(false)}
       />
 
       {(role === "ADMIN" || role === "AUDITOR") && state.diagnostic?.generated_sql && (

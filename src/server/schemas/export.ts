@@ -5,6 +5,8 @@ import { searchRequestSchema } from "./search";
 export const exportCreateRequestSchema = z.object({
   search_request: searchRequestSchema,
   max_rows: z.number().int().positive().nullable().default(100000),
+  /** Export field keys (see src/lib/exportFields.ts); null exports every result column as-is. */
+  fields: z.array(z.string().max(40)).min(1).max(40).nullable().default(null),
 });
 
 export function toExportJobResponse(job: ExportJob) {

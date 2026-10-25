@@ -7,7 +7,8 @@ import { notifyCreditsChanged } from "../credits/useCredits";
 import { DASHBOARD_PAGES } from "../navigation";
 import { useWorkspaceData } from "../WorkspaceDataContext";
 import { MAX_EXPORT_ROWS } from "./ExportDialog";
-import { buildCsv, downloadTextFile, exportFilename } from "./prospect.export";
+import { includesContactDetails } from "@/lib/exportFields";
+import { buildFieldCsv, downloadTextFile, exportFilename } from "./prospect.export";
 import type { ActiveFilterChip } from "./prospect.filters";
 import type { MultiFilterKey, Prospect, ProspectList, SavedSearch } from "./prospect.types";
 
@@ -27,7 +28,7 @@ function startDownload(url: string): void {
 
 /** The actions several dashboard pages share: export, saved searches, lists and filter chips. */
 export function useProspectingActions() {
-  const { search, enrichment, announce, saveSearch, deleteSavedSearch: removeSavedSearch, createList: storeList, deleteList: removeList } =
+  const { search, exportFields, announce, saveSearch, deleteSavedSearch: removeSavedSearch, createList: storeList, deleteList: removeList } =
     useWorkspaceData();
   const router = useRouter();
   const pathname = usePathname();
@@ -40,13 +41,13 @@ export function useProspectingActions() {
     };
   }, []);
 
-  /** CSV of prospects already on screen (a selection or a saved list). */
+  /** CSV of prospects already on screen (a selection or a saved list), with the chosen export fields. */
   const exportProspects = useCallback(
-    (items: readonly Prospect[], label: string) => {
-      downloadTextFile(exportFilename(label), buildCsv(items, enrichment));
+    (items: readonly Prospect[], label: string, fields: readonly string[] = exportFields) => {
+      downloadTextFile(exportFilename(label), buildFieldCsv(items, fields));
       announce(`Exported ${items.length} prospect${items.length === 1 ? "" : "s"} as CSV.`);
     },
-    [enrichment, announce],
+    [exportFields, announce],
   );
 
   /**
@@ -74,7 +75,7 @@ export function useProspectingActions() {
   );
 
   /** Every result of the last search, generated as a server-side export job and downloaded when ready. */
-  const exportResults = useCallback(async (requestedRows?: number) => {
+  const exportResults = useCallback(async (requestedRows?: number, fields: readonly string[] = exportFields) => {
     const { searchedRequest, total } = search.state;
     if (!searchedRequest || exporting) return;
     setExporting(true);
@@ -83,7 +84,8 @@ export function useProspectingActions() {
       // so this is a safe upper bound) instead of starting a job that fails for lack of credits.
       let rows = Math.min(Math.max(requestedRows ?? total, 1), MAX_EXPORT_ROWS);
       const credits = await dashboardApi.credits();
-      if (credits.enabled && credits.cost_per_contact > 0) {
+      // Only email and phone cost credits; without them the export isn't capped by the balance.
+      if (credits.enabled && credits.cost_per_contact > 0 && includesContactDetails(fields)) {
         const affordable = Math.floor(credits.balance / credits.cost_per_contact);
         if (affordable < 1) {
           announce("You have no credits left to export contact details. Top up on the Credits page.");
@@ -94,7 +96,7 @@ export function useProspectingActions() {
           rows = affordable;
         } else announce(`Preparing your export of ${rows.toLocaleString("en-US")} contacts…`);
       } else announce(`Preparing your export of ${rows.toLocaleString("en-US")} contacts…`);
-      let job = await dashboardApi.createExport(searchedRequest, rows);
+      let job = await dashboardApi.createExport(searchedRequest, rows, fields);
       const deadline = Date.now() + EXPORT_TIMEOUT_MS;
       while ((job.status === "QUEUED" || job.status === "RUNNING") && Date.now() < deadline) {
         await wait(EXPORT_POLL_MS);
@@ -115,7 +117,7 @@ export function useProspectingActions() {
       notifyCreditsChanged();
       if (mounted.current) setExporting(false);
     }
-  }, [search.state, exporting, announce]);
+  }, [search.state, exporting, announce, exportFields]);
 
   const removeChip = useCallback(
     (chip: ActiveFilterChip) => {

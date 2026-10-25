@@ -207,8 +207,8 @@ export const dashboardApi = {
     apiRequest<ProspectListRecord<TProspect>>("/api/lists", { method: "POST", body: jsonBody({ name, prospects }) }),
   deleteList: (id: string) => apiRequest<{ status: string }>(`/api/lists/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
-  createExport: (searchRequest: SearchRequestBody, maxRows: number) =>
-    apiRequest<ExportJobRecord>("/api/export", { method: "POST", body: jsonBody({ search_request: searchRequest, max_rows: maxRows }) }),
+  createExport: (searchRequest: SearchRequestBody, maxRows: number, fields: readonly string[] | null = null) =>
+    apiRequest<ExportJobRecord>("/api/export", { method: "POST", body: jsonBody({ search_request: searchRequest, max_rows: maxRows, fields }) }),
   getExport: (id: number) => apiRequest<ExportJobRecord>(`/api/export/${id}`),
   exportDownloadUrl: (token: string) => `/api/export/download/${encodeURIComponent(token)}`,
 

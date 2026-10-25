@@ -12,6 +12,7 @@ import type { SearchRequest } from "../schemas/search";
 import { auditService } from "./auditService";
 import { chService } from "./clickhouseClient";
 import { rewriteOuterLimit } from "./clickhouseSql";
+import { resolveExportFields, type ExportField } from "@/lib/exportFields";
 import { contactIdOf, hasContactDetails, isContactDetailColumn } from "./contactMasking";
 import { creditService } from "./creditService";
 import { sanitizeClickhouseSql } from "./queryExecutor";
@@ -96,7 +97,11 @@ class ExportService {
     orgId: number,
     userRole: string,
     maxRows: number | null = null,
+    /** Field keys to export; null exports every result column. */
+    fieldKeys: readonly string[] | null = null,
   ): Promise<ExportJob> {
+    const fields = fieldKeys ? resolveExportFields(fieldKeys) : null;
+    if (fields && fields.length === 0) throw new Error("Choose at least one known field to export.");
     const s = getSettings();
     const codec = getCodec();
     const capRows = Math.min(maxRows || s.EXPORT_MAX_ROWS, s.EXPORT_MAX_ROWS);
@@ -122,7 +127,7 @@ class ExportService {
     const job = toExportJob(codec, row);
 
     // Process asynchronously; the client polls the job status.
-    const task = this.processExportJob(job.id, request, userRole, capRows).catch((err) =>
+    const task = this.processExportJob(job.id, request, userRole, capRows, fields).catch((err) =>
       logger.error(`Export worker for job ${job.id} crashed`, err),
     );
     this.pending.add(task);
@@ -134,13 +139,13 @@ class ExportService {
       status: "QUEUED",
       orgId,
       userId,
-      details: { job_id: job.id, target: request.search_target, max_rows: capRows },
+      details: { job_id: job.id, target: request.search_target, max_rows: capRows, fields: fields?.map((f) => f.key) ?? "all" },
     });
     return job;
   }
 
   /** Background worker: generate, review, validate, execute and write the sanitized CSV. */
-  async processExportJob(jobId: number, request: SearchRequest, userRole: string, maxRows: number): Promise<void> {
+  async processExportJob(jobId: number, request: SearchRequest, userRole: string, maxRows: number, fields: readonly ExportField[] | null = null): Promise<void> {
     logger.info(`Starting async export worker for job ${jobId}`);
     const db = getDb();
     const codec = getCodec();
@@ -177,8 +182,8 @@ class ExportService {
       const { columns, rows } = await chService.executeQuery(exportSql, parameters, 60);
 
       // Contact details are paid for: charge for contacts this workspace hasn't revealed before.
-      // Rows without any contact detail value are free.
-      const detailColumns = columns.filter(isContactDetailColumn);
+      // Rows without any contact detail value are free, and so are exports without contact-detail fields.
+      const detailColumns = fields ? exportedDetailColumns(columns, fields) : columns.filter(isContactDetailColumn);
       if (creditService.enabled && detailColumns.length > 0) {
         const records = rows.map((row) => Object.fromEntries(columns.map((column, i) => [column, row[i]])));
         const charged = records.filter((record) => hasContactDetails(record, detailColumns));
@@ -191,7 +196,8 @@ class ExportService {
       await fs.promises.mkdir(storageDir, { recursive: true, mode: 0o700 });
       const fileName = `export_${job.org_id}_${job.id}_${randomBytes(8).toString("hex")}.csv`;
       const filePath = path.join(getSettings().EXPORT_STORAGE_PATH, fileName);
-      await writeCsv(resolveFromCwd(filePath), columns, rows);
+      const output = fields ? projectExportFields(columns, rows, fields) : { columns, rows };
+      await writeCsv(resolveFromCwd(filePath), output.columns, output.rows);
 
       const stat = await fs.promises.stat(resolveFromCwd(filePath)).catch(() => null);
       if (!stat || stat.size === 0) throw new Error("Export file was not successfully created or is empty.");
@@ -268,6 +274,34 @@ class ExportService {
       await Promise.allSettled([...this.pending]);
     }
   }
+}
+
+/** Result columns that supply the chosen contact-detail fields. */
+function exportedDetailColumns(columns: readonly string[], fields: readonly ExportField[]): string[] {
+  const wanted = new Set(fields.filter((f) => f.contactDetail).flatMap((f) => f.columns.map((c) => c.toLowerCase())));
+  return columns.filter((column) => wanted.has(column.toLowerCase()));
+}
+
+/**
+ * Rewrites result rows into the chosen fields, labelled for people: each cell is
+ * the first non-empty value among the field's candidate columns ("" when the
+ * result has none of them).
+ */
+export function projectExportFields(columns: readonly string[], rows: readonly unknown[][], fields: readonly ExportField[]): { columns: string[]; rows: unknown[][] } {
+  const index = new Map(columns.map((column, i) => [column.toLowerCase(), i]));
+  const sources = fields.map((field) => field.columns.map((c) => index.get(c.toLowerCase())).filter((i): i is number => i !== undefined));
+  return {
+    columns: fields.map((field) => field.label),
+    rows: rows.map((row) =>
+      sources.map((candidates) => {
+        for (const i of candidates) {
+          const value = row[i];
+          if (value !== null && value !== undefined && String(value).trim() !== "") return value;
+        }
+        return "";
+      }),
+    ),
+  };
 }
 
 export const exportService = singleton("exportService", () => new ExportService());

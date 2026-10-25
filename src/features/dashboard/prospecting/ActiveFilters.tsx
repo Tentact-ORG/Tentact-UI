@@ -20,8 +20,8 @@ interface ActiveFiltersProps {
   onRemove: (chip: ActiveFilterChip) => void;
   onClearAll: () => void;
   onSaveSearch: (name: string) => void;
-  /** Exports the first `rows` results of the last search. */
-  onExport: (rows: number) => void;
+  /** Exports the first `rows` results of the last search with the chosen fields. */
+  onExport: (rows: number, fields: readonly string[]) => void;
   /** The filters of the last search, shown in the export confirmation (defaults to `filters`). */
   searchedFilters?: ProspectFilters | null;
   /** When set, a primary link to the full results page. */
@@ -134,8 +134,7 @@ export function ActiveFilters({
       <ExportDialog
         open={confirming}
         filters={searchedFilters ?? filters}
-        total={resultCount ?? 0}
-        exactCount={exactCount}
+        scope={{ kind: "results", total: resultCount ?? 0, exactCount }}
         onExport={onExport}
         onClose={() => setConfirming(false)}
       />

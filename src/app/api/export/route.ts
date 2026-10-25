@@ -12,7 +12,7 @@ export const POST = route(async (request) => {
   const user = await getCurrentUser(request);
   const body = await parseBody(request, exportCreateRequestSchema);
   try {
-    const job = await exportService.createExportJob(body.search_request, user.id, user.org_id, user.role, body.max_rows);
+    const job = await exportService.createExportJob(body.search_request, user.id, user.org_id, user.role, body.max_rows, body.fields);
     return json(toExportJobResponse(job));
   } catch (err) {
     throw new HttpError(400, errorMessage(err));

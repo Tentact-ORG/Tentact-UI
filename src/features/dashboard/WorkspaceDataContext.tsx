@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
+import { DEFAULT_EXPORT_FIELDS, EXPORT_FIELDS } from "@/lib/exportFields";
 import { ApiError, dashboardApi, errorText, type ProspectListRecord, type SavedSearchRecord } from "./api/dashboard.api";
 import { buildFilterFields, isProspectFilters, type Facets, type FilterField } from "./prospecting/prospect.filters";
 import { createCountryNames, facetKeys, toSearchRequest } from "./prospecting/prospect.query";
@@ -41,6 +42,9 @@ interface WorkspaceData {
   deleteList: (id: string) => Promise<void>;
   enrichment: EnrichmentOptions;
   setEnrichment: Dispatch<SetStateAction<EnrichmentOptions>>;
+  /** Field keys chosen in the export checklist (see src/lib/exportFields.ts), remembered in this browser. */
+  exportFields: readonly string[];
+  setExportFields: Dispatch<SetStateAction<readonly string[]>>;
   /** The signed-in user's role (ADMIN, AUDITOR or MEMBER). */
   role: string;
   status: string;
@@ -90,6 +94,11 @@ export function WorkspaceDataProvider({ storageKey, role, children }: WorkspaceD
     `tentact:${storageKey}:enrichment`,
     DEFAULT_ENRICHMENT,
     isEnrichmentOptions,
+  );
+  const [exportFields, setExportFields] = useLocalStorageState<readonly string[]>(
+    `tentact:${storageKey}:export-fields`,
+    DEFAULT_EXPORT_FIELDS,
+    (value): value is readonly string[] => Array.isArray(value) && value.length > 0 && value.every((key) => EXPORT_FIELDS.some((field) => field.key === key)),
   );
 
   useEffect(() => {
@@ -190,11 +199,13 @@ export function WorkspaceDataProvider({ storageKey, role, children }: WorkspaceD
       deleteList,
       enrichment,
       setEnrichment,
+      exportFields,
+      setExportFields,
       role,
       status,
       announce: setStatus,
     }),
-    [fields, fieldsReady, fieldsError, search, savedSearches, lists, hydrated, saveSearch, deleteSavedSearch, createList, deleteList, enrichment, setEnrichment, role, status],
+    [fields, fieldsReady, fieldsError, search, savedSearches, lists, hydrated, saveSearch, deleteSavedSearch, createList, deleteList, enrichment, setEnrichment, exportFields, setExportFields, role, status],
   );
 
   return <WorkspaceDataContext.Provider value={value}>{children}</WorkspaceDataContext.Provider>;

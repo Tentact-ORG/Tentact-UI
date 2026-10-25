@@ -1,3 +1,4 @@
+import { resolveExportFields } from "@/lib/exportFields";
 import { fullName } from "./prospect.matching";
 import type { EnrichmentOptions, Prospect } from "./prospect.types";
 
@@ -65,6 +66,40 @@ export function buildCsv(prospects: readonly Prospect[], options: EnrichmentOpti
   const columns = buildCsvColumns(options);
   const header = columns.map((column) => csvCell(column.header)).join(",");
   const rows = prospects.map((prospect) => columns.map((column) => csvCell(column.value(prospect))).join(","));
+  return [header, ...rows].join("\r\n");
+}
+
+/** How each export field reads from a prospect on screen (the client-side twin of the server's column mapping). */
+const PROSPECT_FIELD_VALUES: Record<string, (p: Prospect) => string> = {
+  first_name: (p) => p.firstName,
+  last_name: (p) => p.lastName,
+  full_name: fullName,
+  job_title: (p) => p.title,
+  seniority: (p) => p.seniority,
+  department: (p) => p.department,
+  persona: (p) => p.jobFunction,
+  city: (p) => p.city,
+  country: (p) => p.country,
+  linkedin_url: (p) => p.linkedinUrl ?? "",
+  email: (p) => p.email ?? "",
+  email_status: (p) => (p.verifiedEmail ? "VALID" : ""),
+  phone: (p) => p.phone ?? "",
+  company: (p) => p.company.name,
+  website: (p) => p.company.website ?? "",
+  industry: (p) => p.company.industry,
+  employees: (p) => p.company.employees,
+  revenue: (p) => p.company.revenue,
+  headquarters: (p) => p.company.headquarters,
+  funding: (p) => p.company.funding,
+  contact_id: (p) => p.id,
+  company_id: (p) => p.company.id ?? "",
+};
+
+/** A CSV of exactly the chosen export fields, headed by their labels. */
+export function buildFieldCsv(prospects: readonly Prospect[], fieldKeys: readonly string[]): string {
+  const fields = resolveExportFields(fieldKeys);
+  const header = fields.map((field) => csvCell(field.label)).join(",");
+  const rows = prospects.map((prospect) => fields.map((field) => csvCell(PROSPECT_FIELD_VALUES[field.key]?.(prospect) ?? "")).join(","));
   return [header, ...rows].join("\r\n");
 }
 

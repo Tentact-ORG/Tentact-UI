@@ -12,7 +12,10 @@ import { toUser, type User } from "@/server/models/entities";
 import { searchRequestSchema } from "@/server/schemas/search";
 import { contactIdOf, maskEmail, maskPhone, maskSearchRecords, revealContacts } from "@/server/services/contactMasking";
 import { creditService, InsufficientCreditsError } from "@/server/services/creditService";
-import { exportService } from "@/server/services/exportService";
+import fs from "node:fs";
+import { resolveExportFields } from "@/lib/exportFields";
+import { resolveFromCwd } from "@/server/core/paths";
+import { exportService, projectExportFields } from "@/server/services/exportService";
 import { searchPlanCache } from "@/server/services/searchPlanCache";
 import { authHeaders, callRoute, seedTestData, type SeedData } from "./helpers";
 
@@ -144,6 +147,26 @@ describe("credits", () => {
     await creditService.grant(seed.org1.id, 5, null, "test");
     await expect(revealContacts(seed.org1.id, seed.member.id, masked.resultId!, ["empty"])).rejects.toMatchObject({ status: 422 });
     expect(await revealContacts(seed.org1.id, seed.member.id, masked.resultId!, ["with-email"])).toMatchObject({ charged: 1, balance: 4 });
+  });
+
+  it("exports only the chosen fields, and charges nothing without email or phone", async () => {
+    const request = searchRequestSchema.parse(contactSearch);
+    const job = await exportService.createExportJob(request, seed.member.id, seed.org1.id, "MEMBER", 10, ["full_name", "job_title", "contact_id"]);
+    await exportService.drain();
+    const done = await exportService.getJobByToken(job.download_token!);
+    expect(done?.status).toBe("COMPLETED"); // with a zero balance
+    expect(await creditService.balance(seed.org1.id)).toBe(0);
+    const csv = await fs.promises.readFile(resolveFromCwd(done!.file_path!), "utf-8");
+    const [header, first] = csv.trim().split(/\r?\n/);
+    expect(header).toBe("Full name,Job title,Contact ID");
+    expect(first.split(",")).toHaveLength(3);
+    await expect(exportService.createExportJob(request, seed.member.id, seed.org1.id, "MEMBER", 10, ["nope"])).rejects.toThrow(/at least one known field/);
+  });
+
+  it("projects result columns onto export fields", () => {
+    const fields = resolveExportFields(["first_name", "phone", "company_id"]);
+    const out = projectExportFields(["RBID_ORG", "FIRST_NAME_PER", "CELLPHONE_PER", "enriched_phone"], [["o1", "Maya", null, "+1 555 0100"], ["o2", "Ravi", "+91 98", ""]], fields);
+    expect(out).toEqual({ columns: ["First name", "Phone", "Company ID"], rows: [["Maya", "+1 555 0100", "o1"], ["Ravi", "+91 98", "o2"]] });
   });
 
   it("never spends more than the balance under concurrent charges", async () => {

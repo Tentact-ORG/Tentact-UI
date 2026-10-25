@@ -1075,7 +1075,7 @@
 
 /* ---------- export confirmation ---------- */
 .dialog {
-  width: min(560px, calc(100vw - 32px));
+  width: min(640px, calc(100vw - 32px));
   margin: auto;
   padding: 0;
   border: 0;
@@ -1246,4 +1246,86 @@
 
 .panelSuggestions {
   padding: 12px 18px 0;
+}
+
+/* ---------- export field checklist ---------- */
+.fieldChecklist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.fieldChecklist legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.fieldGroup {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.fieldGroupName {
+  padding-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.fieldOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fieldOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.fieldOption input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.fieldOption small {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.fieldOptionOn {
+  border-color: var(--ink);
+  background: rgba(14, 14, 15, 0.04);
+}
+
+.fieldOption:has(input:focus-visible) {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.dialog {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+@media (max-width: 560px) {
+  .fieldGroup {
+    grid-template-columns: 1fr;
+  }
 }
