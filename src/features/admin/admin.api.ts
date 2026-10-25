@@ -5,6 +5,7 @@ import type { AuditEvent, DiscoveredColumn, MetadataRefreshResult, MetadataStatu
 
 /** Admin API client; authenticated by the dashboard session cookie like the rest of the workspace API. */
 export const adminApi = {
+  me: () => apiRequest<{ user: User }>("/api/auth/me"),
   getMetadataStatus: () => apiRequest<MetadataStatus>("/api/admin/metadata/status"),
   triggerMetadataRefresh: () => apiRequest<MetadataRefreshResult>("/api/admin/metadata/refresh", { method: "POST" }),
   listDiscoveredColumns: () => apiRequest<DiscoveredColumn[]>("/api/admin/schema/columns"),
@@ -16,6 +17,7 @@ export const adminApi = {
   listUsers: () => apiRequest<User[]>("/api/admin/users"),
   createUser: (data: { email: string; password: string; full_name: string; role: string; workspace_name?: string | null; starting_credits?: number | null }) =>
     apiRequest<User & { workspace: { id: number; name: string } | null; credits_granted: number }>("/api/admin/users", { method: "POST", body: JSON.stringify(data) }),
+  deleteUser: (id: number) => apiRequest<{ id: number; deleted: boolean }>(`/api/admin/users/${id}`, { method: "DELETE" }),
   /** Whether the signed-in user is a credit operator (may create workspaces and give credits). */
   creditStatus: () => apiRequest<{ is_operator: boolean }>("/api/credits"),
   updateUser: (id: number, data: { role?: string; is_active?: boolean }) =>

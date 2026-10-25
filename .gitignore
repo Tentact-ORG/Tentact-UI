@@ -11,13 +11,11 @@
 # misc
 .DS_Store
 *.pem
-.vscode/
 
 # debug
 npm-debug.log*
 
 # env files
-.env*
 !.env.example
 
 # typescript
@@ -30,4 +28,4 @@ next-env.d.ts
 *.db-shm
 *.db.backup-*
 exports_storage/
-.env
+config.bat
