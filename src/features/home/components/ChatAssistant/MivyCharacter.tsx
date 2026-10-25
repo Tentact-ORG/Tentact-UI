@@ -133,7 +133,8 @@ export function MivyCharacter({ height, waveKey, className }: MivyCharacterProps
       {layer("foot-right", styles.footRight)}
       <span className={styles.bob}>
         <span className={styles.body}>
-          {layer("body", "")}
+          {/* "-v2": renamed when repainted, so cached copies of the old art aren't reused. */}
+          {layer("body-v2", "")}
           <span className={cx(styles.eye, styles.eyeLeft)}>
             <span className={styles.pupil} />
           </span>
