@@ -6,12 +6,11 @@ import { ApiError, dashboardApi, errorText } from "../api/dashboard.api";
 import { notifyCreditsChanged } from "../credits/useCredits";
 import { DASHBOARD_PAGES } from "../navigation";
 import { useWorkspaceData } from "../WorkspaceDataContext";
+import { MAX_EXPORT_ROWS } from "./ExportDialog";
 import { buildCsv, downloadTextFile, exportFilename } from "./prospect.export";
 import type { ActiveFilterChip } from "./prospect.filters";
 import type { MultiFilterKey, Prospect, ProspectList, SavedSearch } from "./prospect.types";
 
-/** Upper bound on rows in a full-results export (the server also enforces EXPORT_MAX_ROWS). */
-const MAX_EXPORT_ROWS = 100_000;
 const EXPORT_POLL_MS = 1500;
 const EXPORT_TIMEOUT_MS = 10 * 60_000;
 
@@ -75,13 +74,27 @@ export function useProspectingActions() {
   );
 
   /** Every result of the last search, generated as a server-side export job and downloaded when ready. */
-  const exportResults = useCallback(async () => {
+  const exportResults = useCallback(async (requestedRows?: number) => {
     const { searchedRequest, total } = search.state;
     if (!searchedRequest || exporting) return;
     setExporting(true);
-    announce("Preparing your export…");
     try {
-      let job = await dashboardApi.createExport(searchedRequest, Math.min(Math.max(total, 1), MAX_EXPORT_ROWS));
+      // Export what the balance covers (each new contact with contact details costs credits; others are free,
+      // so this is a safe upper bound) instead of starting a job that fails for lack of credits.
+      let rows = Math.min(Math.max(requestedRows ?? total, 1), MAX_EXPORT_ROWS);
+      const credits = await dashboardApi.credits();
+      if (credits.enabled && credits.cost_per_contact > 0) {
+        const affordable = Math.floor(credits.balance / credits.cost_per_contact);
+        if (affordable < 1) {
+          announce("You have no credits left to export contact details. Top up on the Credits page.");
+          return;
+        }
+        if (affordable < rows) {
+          announce(`Your ${credits.balance.toLocaleString("en-US")} credits cover ${affordable.toLocaleString("en-US")} contacts: exporting the first ${affordable.toLocaleString("en-US")}. Top up to export more.`);
+          rows = affordable;
+        } else announce(`Preparing your export of ${rows.toLocaleString("en-US")} contacts…`);
+      } else announce(`Preparing your export of ${rows.toLocaleString("en-US")} contacts…`);
+      let job = await dashboardApi.createExport(searchedRequest, rows);
       const deadline = Date.now() + EXPORT_TIMEOUT_MS;
       while ((job.status === "QUEUED" || job.status === "RUNNING") && Date.now() < deadline) {
         await wait(EXPORT_POLL_MS);

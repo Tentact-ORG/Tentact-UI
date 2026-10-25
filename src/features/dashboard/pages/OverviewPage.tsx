@@ -61,7 +61,8 @@ export function OverviewPage({ firstName, workspaceName }: OverviewPageProps) {
         onRemove={actions.removeChip}
         onClearAll={search.clearAll}
         onSaveSearch={(name) => void actions.saveCurrentSearch(name)}
-        onExport={() => void actions.exportResults()}
+        onExport={(rows) => void actions.exportResults(rows)}
+        searchedFilters={search.state.searchedFilters}
         viewResultsHref={DASHBOARD_PAGES.search.href}
       />
 

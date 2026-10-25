@@ -81,7 +81,8 @@ export function SearchPage() {
         onRemove={actions.removeChip}
         onClearAll={search.clearAll}
         onSaveSearch={(name) => void actions.saveCurrentSearch(name)}
-        onExport={() => void actions.exportResults()}
+        onExport={(rows) => void actions.exportResults(rows)}
+        searchedFilters={search.state.searchedFilters}
       />
 
       {state.assumptions.length > 0 && state.status === "success" && (

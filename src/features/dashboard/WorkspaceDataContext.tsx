@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useLocalStorageState } from "@/hooks/useLocalStorageState";
-import { dashboardApi, errorText, type ProspectListRecord, type SavedSearchRecord } from "./api/dashboard.api";
+import { ApiError, dashboardApi, errorText, type ProspectListRecord, type SavedSearchRecord } from "./api/dashboard.api";
 import { buildFilterFields, isProspectFilters, type Facets, type FilterField } from "./prospecting/prospect.filters";
 import { createCountryNames, facetKeys, toSearchRequest } from "./prospecting/prospect.query";
 import {
@@ -135,9 +135,22 @@ export function WorkspaceDataProvider({ storageKey, role, children }: WorkspaceD
     [countries],
   );
 
+  // Deletes remove the item at once (so a slow request can't invite repeat clicks) and restore it only on a real failure.
   const deleteSavedSearch = useCallback(async (id: string) => {
-    await dashboardApi.deleteSavedSearch(id);
-    setSavedSearches((current) => current.filter((item) => item.id !== id));
+    let removed: { item: SavedSearch; index: number } | null = null;
+    setSavedSearches((current) => {
+      const index = current.findIndex((item) => item.id === id);
+      if (index !== -1) removed = { item: current[index], index };
+      return current.filter((item) => item.id !== id);
+    });
+    try {
+      await dashboardApi.deleteSavedSearch(id);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return; // already gone
+      const restore = removed as { item: SavedSearch; index: number } | null;
+      if (restore) setSavedSearches((current) => (current.some((item) => item.id === id) ? current : [...current.slice(0, restore.index), restore.item, ...current.slice(restore.index)]));
+      throw error;
+    }
   }, []);
 
   const createList = useCallback(async (name: string, prospects: readonly Prospect[]) => {
@@ -146,8 +159,20 @@ export function WorkspaceDataProvider({ storageKey, role, children }: WorkspaceD
   }, []);
 
   const deleteList = useCallback(async (id: string) => {
-    await dashboardApi.deleteList(id);
-    setLists((current) => current.filter((item) => item.id !== id));
+    let removed: { item: ProspectList; index: number } | null = null;
+    setLists((current) => {
+      const index = current.findIndex((item) => item.id === id);
+      if (index !== -1) removed = { item: current[index], index };
+      return current.filter((item) => item.id !== id);
+    });
+    try {
+      await dashboardApi.deleteList(id);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return; // already gone
+      const restore = removed as { item: ProspectList; index: number } | null;
+      if (restore) setLists((current) => (current.some((item) => item.id === id) ? current : [...current.slice(0, restore.index), restore.item, ...current.slice(restore.index)]));
+      throw error;
+    }
   }, []);
 
   const value = useMemo<WorkspaceData>(

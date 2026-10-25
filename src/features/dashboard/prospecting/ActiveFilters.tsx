@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 import { BookmarkIcon, CloseIcon, DownloadIcon } from "../components/icons";
+import { ExportDialog } from "./ExportDialog";
 import { activeFilterChips, type ActiveFilterChip } from "./prospect.filters";
 import type { ProspectFilters } from "./prospect.types";
 import styles from "./Prospecting.module.css";
@@ -19,7 +20,10 @@ interface ActiveFiltersProps {
   onRemove: (chip: ActiveFilterChip) => void;
   onClearAll: () => void;
   onSaveSearch: (name: string) => void;
-  onExport: () => void;
+  /** Exports the first `rows` results of the last search. */
+  onExport: (rows: number) => void;
+  /** The filters of the last search, shown in the export confirmation (defaults to `filters`). */
+  searchedFilters?: ProspectFilters | null;
   /** When set, a primary link to the full results page. */
   viewResultsHref?: string;
 }
@@ -79,9 +83,11 @@ export function ActiveFilters({
   onClearAll,
   onSaveSearch,
   onExport,
+  searchedFilters,
   viewResultsHref,
 }: ActiveFiltersProps) {
   const chips = activeFilterChips(filters);
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <div className={styles.activeBar}>
@@ -114,7 +120,7 @@ export function ActiveFilters({
           </span>
         )}
         <SaveSearchForm onSave={onSaveSearch} disabled={chips.length === 0} />
-        <Button variant={viewResultsHref ? "line" : "ink"} onClick={onExport} disabled={!resultCount || exporting}>
+        <Button variant={viewResultsHref ? "line" : "ink"} onClick={() => setConfirming(true)} disabled={!resultCount || exporting}>
           <DownloadIcon />
           <span>{exporting ? "Preparing export…" : "Export CSV"}</span>
         </Button>
@@ -124,6 +130,15 @@ export function ActiveFilters({
           </ButtonLink>
         )}
       </div>
+
+      <ExportDialog
+        open={confirming}
+        filters={searchedFilters ?? filters}
+        total={resultCount ?? 0}
+        exactCount={exactCount}
+        onExport={onExport}
+        onClose={() => setConfirming(false)}
+      />
     </div>
   );
 }
