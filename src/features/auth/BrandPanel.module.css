@@ -65,7 +65,7 @@
     transform: translateX(0) skewX(-18deg);
   }
   to {
-    transform: translateX(900px) skewX(-18deg);
+    transform: translateX(1150px) skewX(-18deg);
   }
 }
 
