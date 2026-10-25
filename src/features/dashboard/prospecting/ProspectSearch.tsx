@@ -104,7 +104,6 @@ export function ProspectSearch() {
       return;
     }
     const previous = filters;
-    setOpen(false);
     setInterpretation({ status: "loading", text });
     try {
       const result = await dashboardApi.interpret(text, toInterpretFields(fields));
@@ -116,6 +115,11 @@ export function ProspectSearch() {
         }),
       );
       setInterpretation({ status: "ready", text, previous, remaining: result.remaining_query, understood: explainInterpretation(text, result, fields) });
+      // Show the filled-in filters: open the panel on the tab that holds most of them.
+      const filled = fields.filter((field) => (result.filters[field.key]?.length ?? 0) > 0);
+      const onPeople = filled.filter((field) => field.tab === "people").length;
+      if (filled.length > 0) setTab(onPeople >= filled.length - onPeople ? "people" : "company");
+      setOpen(true);
     } catch (error) {
       setInterpretation({ status: "error", text, previous, message: errorText(error, "The request couldn't be turned into filters.") });
     }
@@ -130,8 +134,11 @@ export function ProspectSearch() {
     void run(typed);
   }, [interpretation, replaceFilters, run]);
 
+  // Text that hasn't been turned into filters yet: Done does that first, like Enter.
+  const pendingText = filters.query.trim() !== "" && !(interpretation.status === "ready" && filters.query.trim() === interpretation.remaining.trim());
   const finish = () => {
-    if (dirty) submit();
+    if (pendingText) void interpret();
+    else if (dirty) submit();
     else setOpen(false);
   };
 
@@ -143,7 +150,9 @@ export function ProspectSearch() {
         <b>{state.total.toLocaleString("en-US")}</b> {state.exactCount ? "match" : "loaded"}
       </>
     );
-  } else matchSummary = <>Press Done to search</>;
+  } else if (interpretation.status === "loading") matchSummary = <>Filling in the filters…</>;
+  else if (pendingText) matchSummary = <>Press Done to fill in the filters from your text</>;
+  else matchSummary = <>Press Done to search</>;
 
   // Arriving from the "/" shortcut or the sidebar's search button.
   useEffect(() => {
@@ -298,7 +307,7 @@ export function ProspectSearch() {
                   </dl>
                 </div>
               )}
-              <SuggestionChips items={openSuggestions} onAdd={toggleOption} />
+              {!open && <SuggestionChips items={openSuggestions} onAdd={toggleOption} />}
             </>
           )}
         </div>
