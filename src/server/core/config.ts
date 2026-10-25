@@ -118,6 +118,16 @@ const settingsSchema = z
         return value;
       }),
 
+    // Claude on Azure AI Foundry (provider "azure-anthropic"), e.g. as an independent reviewer agent.
+    /** https://<resource>.services.ai.azure.com/anthropic; defaults to the AZURE_OPENAI_ENDPOINT resource. */
+    AZURE_ANTHROPIC_ENDPOINT: envOptionalStr,
+    /** Defaults to AZURE_OPENAI_API_KEY (the same Foundry resource accepts it). */
+    AZURE_ANTHROPIC_API_KEY: envOptionalStr,
+    /** Deployment name of the Claude model, e.g. claude-haiku-4-5. */
+    AZURE_ANTHROPIC_DEPLOYMENT: envOptionalStr,
+    /** Provider for the SQL reviewer agent; unset means LLM_PROVIDER. */
+    LLM_REVIEWER_PROVIDER: envOptionalStr,
+
     // Credits: revealing or exporting contact details spends credits from the organization's balance.
     CREDITS_ENABLED: envBool(true),
     CREDITS_PER_CONTACT: envInt(1),
@@ -135,6 +145,24 @@ const settingsSchema = z
         code: "custom",
         path: ["AZURE_OPENAI_ENDPOINT"],
         message: "Expected the v1 endpoint, e.g. https://<resource>.services.ai.azure.com/openai/v1",
+      });
+    }
+    if (cfg.AZURE_ANTHROPIC_ENDPOINT && !/^https:\/\/[^/]+\/anthropic(\/v1(\/messages)?)?\/?$/.test(cfg.AZURE_ANTHROPIC_ENDPOINT)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["AZURE_ANTHROPIC_ENDPOINT"],
+        message: "Expected the Foundry Anthropic endpoint, e.g. https://<resource>.services.ai.azure.com/anthropic",
+      });
+    }
+    const providers = [cfg.LLM_PROVIDER, cfg.LLM_REVIEWER_PROVIDER ?? ""].map((p) => p.toLowerCase());
+    if (
+      providers.includes("azure-anthropic") &&
+      (!(cfg.AZURE_ANTHROPIC_ENDPOINT || cfg.AZURE_OPENAI_ENDPOINT) || !(cfg.AZURE_ANTHROPIC_API_KEY || cfg.AZURE_OPENAI_API_KEY) || !cfg.AZURE_ANTHROPIC_DEPLOYMENT)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["AZURE_ANTHROPIC_DEPLOYMENT"],
+        message: "The azure-anthropic provider requires AZURE_ANTHROPIC_DEPLOYMENT and an endpoint and key (AZURE_ANTHROPIC_* or AZURE_OPENAI_*)",
       });
     }
     if (cfg.LLM_PROVIDER.toLowerCase() === "azure" && (!cfg.AZURE_OPENAI_ENDPOINT || !cfg.AZURE_OPENAI_API_KEY || !cfg.AZURE_OPENAI_DEPLOYMENT)) {
@@ -157,8 +185,16 @@ export type Settings = z.infer<typeof settingsSchema> & {
   readonly corsOriginsList: string[];
   /** Lower-cased emails of the credit operators. */
   readonly creditOperatorEmails: string[];
+  /** Base URL for the Foundry Anthropic client (https://<resource>.services.ai.azure.com/anthropic/), or null. */
+  readonly azureAnthropicBaseUrl: string | null;
   readonly backgroundTasksEnabled: boolean;
 };
+
+/** The Foundry resource's Anthropic base URL, from AZURE_ANTHROPIC_ENDPOINT or the same resource as AZURE_OPENAI_ENDPOINT. */
+export function azureAnthropicBaseUrl(endpoint: string | null, openaiEndpoint: string | null): string | null {
+  if (endpoint) return `${endpoint.replace(/\/+$/, "").replace(/\/v1(\/messages)?$/, "")}/`;
+  return openaiEndpoint ? `${new URL(openaiEndpoint).origin}/anthropic/` : null;
+}
 
 function loadSettings(): Settings {
   const env = { ...process.env };
@@ -180,6 +216,7 @@ function loadSettings(): Settings {
     creditOperatorEmails: cfg.CREDITS_OPERATOR_EMAILS.split(",")
       .map((e) => e.trim().toLowerCase())
       .filter((e) => e.length > 0),
+    azureAnthropicBaseUrl: azureAnthropicBaseUrl(cfg.AZURE_ANTHROPIC_ENDPOINT, cfg.AZURE_OPENAI_ENDPOINT),
     backgroundTasksEnabled: cfg.APP_ENV !== "test",
   };
 }

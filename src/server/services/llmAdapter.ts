@@ -1,3 +1,4 @@
+import { AnthropicFoundry } from "@anthropic-ai/foundry-sdk";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { getSettings } from "../core/config";
@@ -56,6 +57,23 @@ function requireKey(name: string, value: string | null): string {
   return value;
 }
 
+/** The text of a Claude response; refusals and empty or truncated answers are provider errors. */
+function claudeText(provider: string, response: Anthropic.Message | Anthropic.Beta.BetaMessage): string {
+  if (response.stop_reason === "refusal") {
+    const category = response.stop_details?.category ?? "unspecified";
+    throw new LLMProviderError(`LLM provider '${provider}' declined the request (refusal category: ${category})`);
+  }
+  if (response.stop_reason === "max_tokens") {
+    throw new LLMProviderError(`LLM provider '${provider}' ran out of output tokens before finishing`);
+  }
+  const text = response.content
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+  if (!text) throw new LLMProviderError(`LLM provider '${provider}' returned no text content`);
+  return text;
+}
+
 /**
  * Provider-independent LLM client supporting a deterministic offline mock, Groq,
  * OpenAI (or compatible), Anthropic and Google Gemini.
@@ -70,7 +88,8 @@ export class LLMAdapter {
     agent: LLMAgent = "generator",
   ): Promise<string> {
     const s = getSettings();
-    const provider = s.LLM_PROVIDER.toLowerCase();
+    // The reviewer may run on a different model family than the generator, for an independent check.
+    const provider = ((agent === "reviewer" ? s.LLM_REVIEWER_PROVIDER : null) ?? s.LLM_PROVIDER).toLowerCase();
     const temp = temperature ?? s.LLM_TEMPERATURE;
     const timeout = timeoutSec ?? s.LLM_TIMEOUT_SEC;
 
@@ -87,6 +106,8 @@ export class LLMAdapter {
         return this.generateGemini(systemPrompt, userPrompt, temp, timeout);
       case "azure":
         return this.generateAzure(systemPrompt, userPrompt, timeout, agent);
+      case "azure-anthropic":
+        return this.generateAzureAnthropic(systemPrompt, userPrompt, timeout);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
@@ -186,16 +207,41 @@ export class LLMAdapter {
       throw err;
     }
 
-    if (response.stop_reason === "refusal") {
-      const category = response.stop_details?.category ?? "unspecified";
-      throw new LLMProviderError(`LLM provider 'anthropic' declined the request (refusal category: ${category})`);
+    return claudeText("anthropic", response);
+  }
+
+  /**
+   * Claude deployed on Azure AI Foundry, through the official Foundry SDK
+   * (x-api-key auth against https://<resource>.services.ai.azure.com/anthropic/).
+   * The model is the deployment name. No sampling parameters, and no
+   * server-side refusal fallbacks: Foundry doesn't offer them.
+   */
+  private async generateAzureAnthropic(system: string, user: string, timeout: number): Promise<string> {
+    const s = getSettings();
+    const client = new AnthropicFoundry({
+      apiKey: requireKey("AZURE_ANTHROPIC_API_KEY", s.AZURE_ANTHROPIC_API_KEY ?? s.AZURE_OPENAI_API_KEY),
+      baseURL: requireKey("AZURE_ANTHROPIC_ENDPOINT", s.azureAnthropicBaseUrl),
+      timeout: timeout * 1000,
+    });
+    let response: Anthropic.Message;
+    try {
+      response = await client.messages.create({
+        model: requireKey("AZURE_ANTHROPIC_DEPLOYMENT", s.AZURE_ANTHROPIC_DEPLOYMENT),
+        max_tokens: 16000,
+        system,
+        messages: [{ role: "user", content: user }],
+      });
+    } catch (err) {
+      if (err instanceof Anthropic.APIConnectionTimeoutError) {
+        throw new LLMProviderError(`LLM provider 'azure-anthropic' request timed out after ${timeout}s`);
+      }
+      if (err instanceof Anthropic.APIError) {
+        logger.warn(`LLM provider 'azure-anthropic' returned HTTP ${err.status ?? "n/a"}: ${err.message.slice(0, 500)}`);
+        throw new LLMProviderError(`LLM provider 'azure-anthropic' request failed with HTTP ${err.status ?? "error"}`);
+      }
+      throw err;
     }
-    const text = response.content
-      .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === "text")
-      .map((block) => block.text)
-      .join("");
-    if (!text) throw new LLMProviderError("LLM provider 'anthropic' returned no text content");
-    return text;
+    return claudeText("azure-anthropic", response);
   }
 
   /**
